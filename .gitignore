@@ -4,9 +4,6 @@
 # Databases
 db/
 
-# Frontend (separate Git repo)
-frontend/
-
 # dependencies
 /frontend/node_modules
 /.pnp
