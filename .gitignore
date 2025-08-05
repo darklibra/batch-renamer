@@ -36,3 +36,7 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.bak
+*.pyc
+
+# Environment variables
+.env*

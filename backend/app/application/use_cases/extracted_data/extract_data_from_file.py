@@ -1,10 +1,13 @@
 import re
 from typing import Dict, Any, Optional
-from backend.app.domain.file.model import File
-from backend.app.domain.file_change_pattern.model import FileChangePattern
+from app.domain.file.model import File
+from app.domain.file_change_pattern.model import FileChangePattern
+
 
 class ExtractDataFromFileUseCase:
-    def execute(self, file: File, pattern: FileChangePattern) -> Optional[Dict[str, Any]]:
+    def execute(
+        self, file: File, pattern: FileChangePattern
+    ) -> Optional[Dict[str, Any]]:
         match = re.search(pattern.regex_pattern, file.full_path)
         if match:
             extracted_values: Dict[str, Any] = {}

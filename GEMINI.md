@@ -141,10 +141,12 @@ settings = get_settings()
 #### 🚀 실행 시 환경 설정 예시
 ```shell
 # 로컬에서 실행
+cd backend
 export ENV_NAME=local
-uvicorn backend.app.main:app --reload
+uvicorn app.main:app --reload
 
 # 스테이징에서 실행
+cd backend
 export ENV_NAME=stage
 gunicorn main:app
 ```
@@ -764,18 +766,18 @@ from app.infrastructure.config import settings
 
 ## 기술 스택
 
-| 기술             | 설명                  |
-| ---------------- | --------------------- |
-| FastAPI          | 백엔드 웹 프레임워크  |
+| 기술             | 설명                     |
+| ---------------- | ------------------------ |
+| FastAPI          | 백엔드 웹 프레임워크     |
 | React.js         | 프론트엔드 웹 프레임워크 |
-| SQLModel         | ORM (SQLAlchemy 기반) |
-| SQLite           | 데이터베이스 (개발용) |
-| python-jose      | JWT 인증              |
-| python-multipart | 폼 데이터 처리        |
-| email-validator  | 이메일 유효성 검사    |
-| uv               | 패키지 관리자         |
-| ruff             | 린터                  |
-| pytest           | 테스트 프레임워크     |
+| SQLModel         | ORM (SQLAlchemy 기반)    |
+| SQLite           | 데이터베이스 (개발용)    |
+| python-jose      | JWT 인증                 |
+| python-multipart | 폼 데이터 처리           |
+| email-validator  | 이메일 유효성 검사       |
+| uv               | 패키지 관리자            |
+| ruff             | 린터                     |
+| pytest           | 테스트 프레임워크        |
 
 ### uv
 

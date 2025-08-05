@@ -1,7 +1,8 @@
 from typing import List
 from sqlmodel import Session, select
-from backend.app.domain.extracted_data.model import ExtractedData
-from backend.app.domain.extracted_data.repository import ExtractedDataRepository
+from app.domain.extracted_data.model import ExtractedData
+from app.domain.extracted_data.repository import ExtractedDataRepository
+
 
 class ExtractedDataRepositoryImpl(ExtractedDataRepository):
     def __init__(self, session: Session):

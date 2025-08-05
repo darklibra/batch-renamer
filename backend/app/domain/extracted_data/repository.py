@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from backend.app.domain.extracted_data.model import ExtractedData
+from app.domain.extracted_data.model import ExtractedData
+
 
 class ExtractedDataRepository(ABC):
     @abstractmethod

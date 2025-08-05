@@ -1,8 +1,10 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
+
 
 class IndexRequest(BaseModel):
     directory_path: str
+
 
 class FileResponse(BaseModel):
     id: int
@@ -13,6 +15,7 @@ class FileResponse(BaseModel):
     size: int
     extraction_failed: bool
     extraction_failure_reason: Optional[str]
+
 
 class IndexResponse(BaseModel):
     indexed_files: List[FileResponse]
