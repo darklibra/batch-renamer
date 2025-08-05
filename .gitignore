@@ -40,3 +40,5 @@ yarn-error.log*
 
 # Environment variables
 .env*
+
+__pycache__
