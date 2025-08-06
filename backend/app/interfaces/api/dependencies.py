@@ -222,11 +222,15 @@ def get_apply_saved_pattern_use_case(
     extracted_data_repository: ExtractedDataRepository = Depends(
         get_extracted_data_repository
     ),
+    extract_data_from_file_use_case: ExtractDataFromFileUseCase = Depends(
+        get_extract_data_from_file_use_case
+    ),
 ) -> ApplySavedPatternUseCase:
     return ApplySavedPatternUseCase(
         file_change_pattern_repository=file_change_pattern_repository,
         file_repository=file_repository,
         extracted_data_repository=extracted_data_repository,
+        extract_data_from_file_use_case=extract_data_from_file_use_case,
     )
 
 

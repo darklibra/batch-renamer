@@ -15,3 +15,7 @@ class ExtractedDataRepository(ABC):
     @abstractmethod
     def delete_by_file_id(self, file_id: int) -> None:
         pass
+
+    @abstractmethod
+    def delete_by_file_id_and_pattern_id(self, file_id: int, pattern_id: int) -> None:
+        pass

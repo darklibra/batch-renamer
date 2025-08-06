@@ -42,6 +42,7 @@ def get_all_files(
     _sort_field: Optional[str] = Query(None, alias="_sort"),
     _sort_order: Optional[str] = Query(None, alias="_order"),
     ids: Optional[List[int]] = Query(None),
+    filename: Optional[str] = Query(None), # filename 필터 추가
 ):
     if ids:
         file_ids = ids
@@ -56,9 +57,10 @@ def get_all_files(
             skip=skip,
             limit=limit,
             sort_field=_sort_field,
-            sort_order=_sort_order
+            sort_order=_sort_order,
+            filename=filename # filename 필터 전달
         )
-        total_count = file_repository.count_all()
+        total_count = file_repository.count_all(filename=filename) # filename 필터 전달
 
         content_range_start = skip
         content_range_end = skip + len(files) - 1

@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional, List
 from app.domain.file.model import File
 from app.domain.file.repository import FileRepository
+from app.domain.file_change_pattern.model import FileChangePattern
 from app.application.use_cases.extracted_data.extract_data_from_file import ExtractDataFromFileUseCase
 
 class TestFilePatternUseCase:

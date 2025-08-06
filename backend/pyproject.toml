@@ -1,5 +1,5 @@
 [project]
-name = "clear-file-backend"
+name = "batch-rename"
 version = "0.1.0"
 description = "Backend for the Clear File application"
 authors = [{ name = "Dain", email = "dain@example.com" }]
@@ -40,3 +40,6 @@ dev-dependencies = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

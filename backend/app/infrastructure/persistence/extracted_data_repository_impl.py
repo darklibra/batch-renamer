@@ -24,3 +24,12 @@ class ExtractedDataRepositoryImpl(ExtractedDataRepository):
         for data in results:
             self.session.delete(data)
         self.session.commit()
+
+    def delete_by_file_id_and_pattern_id(self, file_id: int, pattern_id: int) -> None:
+        statement = select(ExtractedData).where(
+            ExtractedData.file_id == file_id, ExtractedData.pattern_id == pattern_id
+        )
+        results = self.session.exec(statement).all()
+        for data in results:
+            self.session.delete(data)
+        self.session.commit()

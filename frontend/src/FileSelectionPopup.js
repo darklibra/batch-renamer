@@ -19,6 +19,7 @@ import dataProvider from './dataProvider';
 
 const FileSelectionPopup = ({ open, onClose, onFileSelect, initialSelectedFileIds = [], onSelectionChange }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(''); // New state for debounced search
   const [files, setFiles] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState(new Set()); // Initialize as empty Set
   const [page, setPage] = useState(0);
@@ -29,22 +30,37 @@ const FileSelectionPopup = ({ open, onClose, onFileSelect, initialSelectedFileId
   useEffect(() => {
     if (open) {
       setSelectedFiles(new Set(initialSelectedFileIds.map(id => Number(id))));
+      setSearchTerm(''); // 팝업 열릴 때 검색어 초기화
+      setDebouncedSearchTerm(''); // 디바운스 검색어도 초기화
+      setPage(0); // 페이지 초기화
     }
-  }, [open]); // Only depend on 'open' prop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Debounce effect
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [searchTerm]);
 
   const fetchFiles = useCallback(async () => {
     try {
       const response = await dataProvider.getList('files', {
         pagination: { page: page + 1, perPage: perPage },
         sort: { field: 'full_path', order: 'ASC' },
-        filter: {},
+        filter: debouncedSearchTerm ? { filename: debouncedSearchTerm } : {},
       });
       setFiles(response.data);
       setTotal(response.total);
     } catch (error) {
       console.error('파일 목록을 불러오는 데 실패했습니다.', error);
     }
-  }, [page, perPage]);
+  }, [page, perPage, debouncedSearchTerm]);
 
   useEffect(() => {
     if (open) {
@@ -104,9 +120,7 @@ const FileSelectionPopup = ({ open, onClose, onFileSelect, initialSelectedFileId
     setPage(0); // Reset to first page when rows per page changes
   };
 
-  const displayedFiles = files.filter(file =>
-    file.full_path.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const displayedFiles = files;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>

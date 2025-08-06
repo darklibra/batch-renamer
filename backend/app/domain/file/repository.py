@@ -20,7 +20,7 @@ class FileRepository(ABC):
         pass
 
     @abstractmethod
-    def find_all(self, skip: int = 0, limit: int = 10, sort_field: Optional[str] = None, sort_order: Optional[str] = None) -> List[File]:
+    def find_all(self, skip: int = 0, limit: int = 10, sort_field: Optional[str] = None, sort_order: Optional[str] = None, filename: Optional[str] = None) -> List[File]:
         pass
 
     @abstractmethod

@@ -3,6 +3,7 @@ import { Menu, MenuItemLink } from 'react-admin';
 import LayersIcon from '@mui/icons-material/Layers';
 import PatternIcon from '@mui/icons-material/Pattern';
 import RuleFolderIcon from '@mui/icons-material/RuleFolder';
+import FindInPageIcon from '@mui/icons-material/FindInPage';
 import ScienceIcon from '@mui/icons-material/Science';
 
 const MyMenu = ({ onMenuClick, dense }) => (
@@ -29,6 +30,12 @@ const MyMenu = ({ onMenuClick, dense }) => (
             to="/pattern-tester"
             primaryText="Pattern Tester"
             leftIcon={<ScienceIcon />}
+            dense={dense}
+        />
+        <MenuItemLink
+            to="/scan"
+            primaryText="파일 스캔"
+            leftIcon={<FindInPageIcon />}
             dense={dense}
         />
     </Menu>

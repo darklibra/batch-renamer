@@ -1,6 +1,7 @@
 import os
 import fnmatch
 from typing import List, Optional
+import unicodedata
 from app.domain.file.model import File
 from app.domain.file.repository import FileRepository
 from app.domain.exclusion_pattern.repository import ExclusionPatternRepository
@@ -32,6 +33,11 @@ class IndexFilesUseCase:
                     if extension.startswith('.'):
                         extension = extension[1:]
                     directory = os.path.dirname(full_path)
+                    
+                    base_name = unicodedata.normalize("NFC", base_name)
+                    extension = unicodedata.normalize("NFC", extension)
+                    full_path = unicodedata.normalize("NFC", full_path)
+                    
                     yield File(
                         filename=base_name,
                         extension=extension,

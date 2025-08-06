@@ -217,13 +217,13 @@ const customDataProvider = {
             return response.json();
         });
     },
-    testPattern: (fileId, patternId) => {
+    testPattern: (fileIds, patternString) => {
         return fetch(`${apiUrl}/test-pattern`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ file_id: fileId, pattern_id: patternId }),
+            body: JSON.stringify({ file_ids: fileIds, pattern_string: patternString }),
         })
         .then(response => {
             if (!response.ok) {
