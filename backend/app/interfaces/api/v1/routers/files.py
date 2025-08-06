@@ -24,41 +24,38 @@ def index_files(
     request: IndexRequest,
     use_case: IndexFilesUseCase = Depends(get_index_files_use_case),
 ):
-    indexed_files = use_case.execute(request.directory_path)
+    indexed_files = use_case.execute(request.directory_path, request.exclude_patterns)
 
     response_files = [
-        FileResponse(
-            id=f.id,
-            filename=f.filename,
-            extension=f.extension,
-            directory=f.directory,
-            full_path=f.full_path,
-            size=f.size,
-            extraction_failed=f.extraction_failed,
-            extraction_failure_reason=f.extraction_failure_reason,
-        )
-        for f in indexed_files
+        FileResponse.model_validate(f) for f in indexed_files
     ]
 
     return IndexResponse(indexed_files=response_files)
 
 
+from fastapi.responses import JSONResponse
+
+from fastapi import Query
+
 @router.get("/", response_model=List[FileResponse])
-def get_all_files(file_repository: FileRepository = Depends(get_file_repository)):
-    files = file_repository.find_all()
-    return [
-        FileResponse(
-            id=f.id,
-            filename=f.filename,
-            extension=f.extension,
-            directory=f.directory,
-            full_path=f.full_path,
-            size=f.size,
-            extraction_failed=f.extraction_failed,
-            extraction_failure_reason=f.extraction_failure_reason,
-        )
-        for f in files
-    ]
+def get_all_files(
+    file_repository: FileRepository = Depends(get_file_repository),
+    _start: int = Query(0, alias="_start"),
+    _end: int = Query(10, alias="_end"),
+):
+    skip = _start
+    limit = _end - _start
+    files = file_repository.find_all(skip=skip, limit=limit)
+    total_count = file_repository.count_all()
+
+    response_data = [FileResponse.model_validate(f).model_dump() for f in files]
+    
+    content_range = f"files {_start}-{_start + len(files) - 1}/{total_count}"
+    
+    return JSONResponse(
+        content=response_data,
+        headers={"Content-Range": content_range}
+    )
 
 
 @router.post(

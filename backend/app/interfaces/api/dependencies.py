@@ -38,15 +38,46 @@ from app.infrastructure.persistence.file_change_pattern_repository_impl import (
 )
 from app.infrastructure.persistence.file_repository_impl import FileRepositoryImpl
 
+# Exclusion Pattern imports
+from app.domain.exclusion_pattern.repository import ExclusionPatternRepository
+from app.infrastructure.persistence.exclusion_pattern_repository_impl import (
+    ExclusionPatternRepositoryImpl,
+)
+from app.application.use_cases.exclusion_pattern.create_exclusion_pattern import (
+    CreateExclusionPatternUseCase,
+)
+from app.application.use_cases.exclusion_pattern.get_exclusion_patterns import (
+    GetExclusionPatternsUseCase,
+)
+from app.application.use_cases.exclusion_pattern.update_exclusion_pattern import (
+    UpdateExclusionPatternUseCase,
+)
+from app.application.use_cases.exclusion_pattern.delete_exclusion_pattern import (
+    DeleteExclusionPatternUseCase,
+)
+
 
 def get_file_repository(session: Session = Depends(get_session)) -> FileRepository:
     return FileRepositoryImpl(session=session)
 
 
+# Exclusion Pattern Dependencies
+def get_exclusion_pattern_repository(
+    session: Session = Depends(get_session),
+) -> ExclusionPatternRepository:
+    return ExclusionPatternRepositoryImpl(session=session)
+
+
 def get_index_files_use_case(
     file_repository: FileRepository = Depends(get_file_repository),
+    exclusion_pattern_repository: ExclusionPatternRepository = Depends(
+        get_exclusion_pattern_repository
+    ),
 ) -> IndexFilesUseCase:
-    return IndexFilesUseCase(file_repository=file_repository)
+    return IndexFilesUseCase(
+        file_repository=file_repository,
+        exclusion_pattern_repository=exclusion_pattern_repository,
+    )
 
 
 def get_file_change_pattern_repository(
@@ -159,3 +190,27 @@ def get_apply_patterns_to_specific_file_use_case(
         file_change_pattern_repository=file_change_pattern_repository,
         apply_patterns_to_file_use_case=apply_patterns_to_file_use_case,
     )
+
+
+def get_create_exclusion_pattern_use_case(
+    repository: ExclusionPatternRepository = Depends(get_exclusion_pattern_repository),
+) -> CreateExclusionPatternUseCase:
+    return CreateExclusionPatternUseCase(repository=repository)
+
+
+def get_get_exclusion_patterns_use_case(
+    repository: ExclusionPatternRepository = Depends(get_exclusion_pattern_repository),
+) -> GetExclusionPatternsUseCase:
+    return GetExclusionPatternsUseCase(repository=repository)
+
+
+def get_update_exclusion_pattern_use_case(
+    repository: ExclusionPatternRepository = Depends(get_exclusion_pattern_repository),
+) -> UpdateExclusionPatternUseCase:
+    return UpdateExclusionPatternUseCase(repository=repository)
+
+
+def get_delete_exclusion_pattern_use_case(
+    repository: ExclusionPatternRepository = Depends(get_exclusion_pattern_repository),
+) -> DeleteExclusionPatternUseCase:
+    return DeleteExclusionPatternUseCase(repository=repository)

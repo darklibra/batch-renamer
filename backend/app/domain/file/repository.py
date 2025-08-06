@@ -16,7 +16,11 @@ class FileRepository(ABC):
         pass
 
     @abstractmethod
-    def find_all(self) -> List[File]:
+    def find_all(self, skip: int = 0, limit: int = 10) -> List[File]:
+        pass
+
+    @abstractmethod
+    def count_all(self) -> int:
         pass
 
     @abstractmethod

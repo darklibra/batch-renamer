@@ -12,7 +12,11 @@ class FileChangePatternRepository(ABC):
         pass
 
     @abstractmethod
-    def find_all(self) -> List[FileChangePattern]:
+    def find_all(self, skip: int = 0, limit: int = 10) -> List[FileChangePattern]:
+        pass
+
+    @abstractmethod
+    def count_all(self) -> int:
         pass
 
     @abstractmethod

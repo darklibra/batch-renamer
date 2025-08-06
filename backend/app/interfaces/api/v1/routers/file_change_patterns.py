@@ -38,15 +38,31 @@ def create_pattern(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+from fastapi import Query
+from fastapi.responses import JSONResponse
+
 @router.get(
     "/",
     response_model=FileChangePatternListResponse
 )
 def get_all_patterns(
-    use_case: GetFileChangePatternsUseCase = Depends(get_get_file_change_patterns_use_case)
+    use_case: GetFileChangePatternsUseCase = Depends(get_get_file_change_patterns_use_case),
+    _start: int = Query(0, alias="_start"),
+    _end: int = Query(10, alias="_end"),
 ):
-    patterns = use_case.execute()
-    return FileChangePatternListResponse(patterns=[FileChangePatternResponse.model_validate(p) for p in patterns])
+    skip = _start
+    limit = _end - _start
+    patterns = use_case.repository.find_all(skip=skip, limit=limit)
+    total_count = use_case.repository.count_all()
+
+    response_data = [FileChangePatternResponse.model_validate(p).model_dump() for p in patterns]
+    
+    content_range = f"file-change-patterns {_start}-{_start + len(patterns) - 1}/{total_count}"
+    
+    return JSONResponse(
+        content=response_data,
+        headers={"Content-Range": content_range}
+    )
 
 @router.get(
     "/{pattern_id}",

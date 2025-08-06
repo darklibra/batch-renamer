@@ -4,6 +4,7 @@ from typing import List, Optional
 
 class IndexRequest(BaseModel):
     directory_path: str
+    exclude_patterns: Optional[List[str]] = None
 
 
 class FileResponse(BaseModel):
@@ -15,6 +16,9 @@ class FileResponse(BaseModel):
     size: int
     extraction_failed: bool
     extraction_failure_reason: Optional[str]
+
+    class Config:
+        from_attributes = True
 
 
 class IndexResponse(BaseModel):
