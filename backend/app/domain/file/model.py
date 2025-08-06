@@ -1,5 +1,5 @@
-from sqlmodel import Field, Relationship
-from typing import Optional, List
+from sqlmodel import Field, Relationship, JSON, Column
+from typing import Optional, List, Dict, Any
 from app.domain.base_model import TimestampedBase
 
 class File(TimestampedBase, table=True):
@@ -9,6 +9,8 @@ class File(TimestampedBase, table=True):
     directory: str
     full_path: str = Field(unique=True, index=True)
     size: int
+
+    extracted_info: Dict[str, Any] = Field(default={}, sa_column=Column(JSON)) # 추출된 정보 필드 추가
 
     extraction_failed: bool = Field(default=False) # 추출 실패 여부
     extraction_failure_reason: Optional[str] = Field(default=None) # 추출 실패 이유

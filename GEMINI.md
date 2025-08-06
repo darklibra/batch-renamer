@@ -223,9 +223,14 @@ def issue_coupon_handler(
 # dependencies.py
 from app.infrastructure.persistence.sqlalchemy_coupon_repository_impl import SqlAlchemyCouponRepositoryImpl
 from app.domain.coupon.repository import CouponRepository
+from app.application.use_cases.extracted_data.extract_data_from_file import ExtractDataFromFileUseCase
 
 def get_issue_coupon_use_case(coupon_repo: CouponRepository = Depends(SqlAlchemyCouponRepositoryImpl)) -> IssueCouponUseCase:
     return IssueCouponUseCase(coupon_repo=coupon_repo)
+
+def get_extract_data_from_file_use_case(
+) -> ExtractDataFromFileUseCase:
+    return ExtractDataFromFileUseCase()
 ```
 
 ##### 예외처리 권장 방식
@@ -322,6 +327,7 @@ def register_exception_handlers(app):
 - Application은 도메인을 참조할 수 있다.
 - Interface는 Application을 참조할 수 있다.
 - Infrastructure는 어떤 계층이든 참조 가능하지만, 다른 계층에서 Infrastructure에 직접 의존하지 않도록 주의
+- 유즈케이스는 필요한 최소한의 의존성만 주입받아야 한다. (예: `TestFilePatternUseCase`에서 불필요한 `FileChangePatternRepository` 제거)
 
 ### 유즈케이스 작성 가이드
 ```python
@@ -338,10 +344,13 @@ class IssueCouponUseCase:
 ### 라우터 작성 가이드
 
 ```python
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from typing import List, Optional
 from app.interfaces.api.v1.dtos.coupon_dtos import IssueCouponRequestDto, CouponIssuedResponseDto
 from app.application.use_cases.issue_coupon import IssueCouponUseCase
-from app.interfaces.api.dependencies import get_issue_coupon_use_case
+from app.interfaces.api.dependencies import get_issue_coupon_use_case, get_file_repository
+from app.interfaces.api.v1.dtos.file_dtos import FileResponse
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
@@ -351,6 +360,42 @@ def issue_coupon_handler(
     use_case: IssueCouponUseCase = Depends(get_issue_coupon_use_case)
 ):
     return use_case.execute(request)
+
+@router.get("/files", response_model=List[FileResponse])
+def get_all_files(
+    file_repository: FileRepository = Depends(get_file_repository),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+    _sort_field: Optional[str] = Query(None, alias="_sort"),
+    _sort_order: Optional[str] = Query(None, alias="_order"),
+    ids: Optional[List[int]] = Query(None),
+):
+    if ids:
+        files = file_repository.find_by_ids(ids)
+        total_count = len(files)
+        response_data = [FileResponse.model_validate(f).model_dump() for f in files]
+        content_range = f"files 0-{len(files) - 1}/{total_count}"
+    else:
+        skip = (page - 1) * per_page
+        limit = per_page
+        files = file_repository.find_all(
+            skip=skip,
+            limit=limit,
+            sort_field=_sort_field,
+            sort_order=_sort_order
+        )
+        total_count = file_repository.count_all()
+
+        content_range_start = skip
+        content_range_end = skip + len(files) - 1
+        content_range = f"files {content_range_start}-{content_range_end}/{total_count}"
+
+        response_data = [FileResponse.model_validate(f).model_dump() for f in files]
+
+    return JSONResponse(
+        content=response_data,
+        headers={"Content-Range": content_range}
+    )
 ```
 #### 라우터에 포함되면 안되는 코드
 | 포함된 로직          | 예시                      | 이동 대상             |
@@ -650,6 +695,7 @@ DDD에서는 계층 간 의존성을 최소화하고 역할을 분리하기 위�
 ```python
 # interfaces/api/v1/dtos/coupon_dtos.py
 from pydantic import BaseModel, Field
+from typing import List
 
 class IssueCouponRequestDto(BaseModel):
     user_id: int = Field(..., gt=0)
@@ -659,6 +705,11 @@ class CouponIssuedResponseDto(BaseModel):
     coupon_id: int
     user_id: int
     amount: int
+
+# interfaces/api/v1/dtos/test_dtos.py (예시)
+class TestPatternRequest(BaseModel):
+    file_ids: List[int]
+    pattern_string: str
 ```
 
 #### DTO ↔ 도메인 변환 책임

@@ -17,8 +17,16 @@ class FileChangePatternRepositoryImpl(FileChangePatternRepository):
     def find_by_id(self, pattern_id: int) -> Optional[FileChangePattern]:
         return self.session.get(FileChangePattern, pattern_id)
 
+    def find_by_name(self, name: str) -> Optional[FileChangePattern]:
+        statement = select(FileChangePattern).where(FileChangePattern.name == name)
+        return self.session.exec(statement).first()
+
     def find_all(self, skip: int = 0, limit: int = 10) -> List[FileChangePattern]:
         statement = select(FileChangePattern).offset(skip).limit(limit)
+        return self.session.exec(statement).all()
+
+    def find_by_ids(self, pattern_ids: List[int]) -> List[FileChangePattern]:
+        statement = select(FileChangePattern).where(FileChangePattern.id.in_(pattern_ids))
         return self.session.exec(statement).all()
 
     def count_all(self) -> int:

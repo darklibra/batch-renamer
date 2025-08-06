@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 from typing import Optional
 
@@ -10,3 +10,5 @@ class BaseConfig(BaseSettings):
     APP_NAME: str = "Clear File"
     DEBUG: bool = False
     DATABASE_URL: Optional[str] = None
+
+    model_config = SettingsConfigDict(extra="ignore")

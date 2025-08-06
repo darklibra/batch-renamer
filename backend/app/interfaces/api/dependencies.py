@@ -1,23 +1,13 @@
 from fastapi import Depends
 from sqlmodel import Session
 
-from app.application.use_cases.extracted_data.reapply_patterns_to_all_files import (
-    ReapplyPatternsToAllFilesUseCase,
-)
-from app.domain.file.repository import FileRepository
 from app.infrastructure.app_config import get_session
-from app.application.use_cases.extracted_data.apply_patterns_to_file import (
-    ApplyPatternsToFileUseCase,
-)
-from app.application.use_cases.extracted_data.apply_patterns_to_specific_file import (
-    ApplyPatternsToSpecificFileUseCase,
-)
-from app.application.use_cases.extracted_data.extract_data_from_file import (
-    ExtractDataFromFileUseCase,
-)
 from app.application.use_cases.file_change_pattern.create_file_change_pattern import (
     CreateFileChangePatternUseCase,
 )
+from app.application.use_cases.file_change_pattern.confirm_file_change_pattern import (
+    ConfirmFileChangePatternUseCase,
+)  # New import
 from app.application.use_cases.file_change_pattern.delete_file_change_pattern import (
     DeleteFileChangePatternUseCase,
 )
@@ -54,6 +44,19 @@ from app.application.use_cases.exclusion_pattern.update_exclusion_pattern import
 )
 from app.application.use_cases.exclusion_pattern.delete_exclusion_pattern import (
     DeleteExclusionPatternUseCase,
+)
+from app.domain.file.repository import FileRepository
+from app.application.use_cases.extracted_data.apply_patterns_to_file import (
+    ApplyPatternsToFileUseCase,
+)
+from app.application.use_cases.extracted_data.apply_patterns_to_specific_file import (
+    ApplyPatternsToSpecificFileUseCase,
+)
+from app.application.use_cases.extracted_data.extract_data_from_file import (
+    ExtractDataFromFileUseCase,
+)
+from app.application.use_cases.extracted_data.reapply_patterns_to_all_files import (
+    ReapplyPatternsToAllFilesUseCase,
 )
 
 
@@ -92,14 +95,8 @@ def get_extracted_data_repository(
     return ExtractedDataRepositoryImpl(session=session)
 
 
-def get_extract_data_from_file_use_case(
-    extracted_data_repository: ExtractedDataRepository = Depends(
-        get_extracted_data_repository
-    ),
-) -> ExtractDataFromFileUseCase:
-    return ExtractDataFromFileUseCase(
-        extracted_data_repository=extracted_data_repository
-    )
+def get_extract_data_from_file_use_case() -> ExtractDataFromFileUseCase:
+    return ExtractDataFromFileUseCase()
 
 
 def get_apply_patterns_to_file_use_case(
@@ -138,11 +135,27 @@ def get_create_file_change_pattern_use_case(
     repository: FileChangePatternRepository = Depends(
         get_file_change_pattern_repository
     ),
-    reapply_use_case: ReapplyPatternsToAllFilesUseCase = Depends(
-        get_reapply_patterns_to_all_files_use_case
+    file_repository: FileRepository = Depends(get_file_repository),
+    extract_data_from_file_use_case: ExtractDataFromFileUseCase = Depends(
+        get_extract_data_from_file_use_case
     ),
 ) -> CreateFileChangePatternUseCase:
     return CreateFileChangePatternUseCase(
+        repository=repository,
+        file_repository=file_repository,
+        extract_data_from_file_use_case=extract_data_from_file_use_case,
+    )
+
+
+def get_confirm_file_change_pattern_use_case(
+    repository: FileChangePatternRepository = Depends(
+        get_file_change_pattern_repository
+    ),
+    reapply_use_case: ReapplyPatternsToAllFilesUseCase = Depends(
+        get_reapply_patterns_to_all_files_use_case
+    ),
+) -> ConfirmFileChangePatternUseCase:
+    return ConfirmFileChangePatternUseCase(
         repository=repository, reapply_use_case=reapply_use_case
     )
 
@@ -189,6 +202,43 @@ def get_apply_patterns_to_specific_file_use_case(
         file_repository=file_repository,
         file_change_pattern_repository=file_change_pattern_repository,
         apply_patterns_to_file_use_case=apply_patterns_to_file_use_case,
+    )
+
+
+from app.application.use_cases.file_change_pattern.apply_saved_pattern import (
+    ApplySavedPatternUseCase,
+)
+from app.application.use_cases.extracted_data.test_file_pattern import (
+    TestFilePatternUseCase,
+)
+
+# ... (생략)
+
+def get_apply_saved_pattern_use_case(
+    file_change_pattern_repository: FileChangePatternRepository = Depends(
+        get_file_change_pattern_repository
+    ),
+    file_repository: FileRepository = Depends(get_file_repository),
+    extracted_data_repository: ExtractedDataRepository = Depends(
+        get_extracted_data_repository
+    ),
+) -> ApplySavedPatternUseCase:
+    return ApplySavedPatternUseCase(
+        file_change_pattern_repository=file_change_pattern_repository,
+        file_repository=file_repository,
+        extracted_data_repository=extracted_data_repository,
+    )
+
+
+def get_test_file_pattern_use_case(
+    file_repository: FileRepository = Depends(get_file_repository),
+    extract_data_from_file_use_case: ExtractDataFromFileUseCase = Depends(
+        get_extract_data_from_file_use_case
+    ),
+) -> TestFilePatternUseCase:
+    return TestFilePatternUseCase(
+        file_repository=file_repository,
+        extract_data_from_file_use_case=extract_data_from_file_use_case,
     )
 
 

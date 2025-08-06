@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status  # status 추가
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List, Optional
 from app.application.use_cases.index_files import IndexFilesUseCase
 from app.interfaces.api.dependencies import (
     get_index_files_use_case,
     get_file_repository,
     get_apply_patterns_to_specific_file_use_case,
-)  # get_apply_patterns_to_specific_file_use_case 추가
+)
 from app.interfaces.api.v1.dtos.file_dtos import (
     IndexRequest,
     FileResponse,
@@ -14,7 +14,8 @@ from app.interfaces.api.v1.dtos.file_dtos import (
 from app.domain.file.repository import FileRepository
 from app.application.use_cases.extracted_data.apply_patterns_to_specific_file import (
     ApplyPatternsToSpecificFileUseCase,
-)  # 추가
+)
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
@@ -33,25 +34,38 @@ def index_files(
     return IndexResponse(indexed_files=response_files)
 
 
-from fastapi.responses import JSONResponse
-
-from fastapi import Query
-
 @router.get("/", response_model=List[FileResponse])
 def get_all_files(
     file_repository: FileRepository = Depends(get_file_repository),
-    _start: int = Query(0, alias="_start"),
-    _end: int = Query(10, alias="_end"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+    _sort_field: Optional[str] = Query(None, alias="_sort"),
+    _sort_order: Optional[str] = Query(None, alias="_order"),
+    ids: Optional[List[int]] = Query(None),
 ):
-    skip = _start
-    limit = _end - _start
-    files = file_repository.find_all(skip=skip, limit=limit)
-    total_count = file_repository.count_all()
+    if ids:
+        file_ids = ids
+        files = file_repository.find_by_ids(file_ids)
+        total_count = len(files) # For getMany, total_count is the number of requested ids
+        response_data = [FileResponse.model_validate(f).model_dump() for f in files]
+        content_range = f"files 0-{len(files) - 1}/{total_count}"
+    else:
+        skip = (page - 1) * per_page
+        limit = per_page
+        files = file_repository.find_all(
+            skip=skip,
+            limit=limit,
+            sort_field=_sort_field,
+            sort_order=_sort_order
+        )
+        total_count = file_repository.count_all()
 
-    response_data = [FileResponse.model_validate(f).model_dump() for f in files]
-    
-    content_range = f"files {_start}-{_start + len(files) - 1}/{total_count}"
-    
+        content_range_start = skip
+        content_range_end = skip + len(files) - 1
+        content_range = f"files {content_range_start}-{content_range_end}/{total_count}"
+
+        response_data = [FileResponse.model_validate(f).model_dump() for f in files]
+
     return JSONResponse(
         content=response_data,
         headers={"Content-Range": content_range}
@@ -60,7 +74,7 @@ def get_all_files(
 
 @router.post(
     "/{file_id}/apply-patterns",
-    response_model=FileResponse,  # 추출된 데이터 반환 또는 파일 정보 반환
+    response_model=FileResponse,
     status_code=status.HTTP_200_OK,
 )
 def apply_patterns_to_specific_file(
@@ -76,7 +90,6 @@ def apply_patterns_to_specific_file(
             detail="File not found or no patterns applied.",
         )
 
-    # 추출 성공 후 업데이트된 파일 정보를 반환
     updated_file = use_case.file_repository.find_by_id(file_id)
     if not updated_file:
         raise HTTPException(

@@ -30,6 +30,7 @@ class ApplyPatternsToFileUseCase:
         # 파일의 추출 실패 상태 초기화
         file.extraction_failed = False
         file.extraction_failure_reason = None
+        file.extracted_info = {} # extracted_info 초기화
 
         for pattern in patterns:
             extracted_values = self.extract_data_from_file_use_case.execute(
@@ -51,6 +52,7 @@ class ApplyPatternsToFileUseCase:
                 pattern_id=best_match_pattern.id,
                 extracted_values=best_match_data,
             )
+            file.extracted_info = best_match_data # extracted_info 업데이트
             self.file_repository.save(file)  # 파일 상태 업데이트
             return self.extracted_data_repository.save(extracted_data)
         else:
@@ -59,5 +61,6 @@ class ApplyPatternsToFileUseCase:
             file.extraction_failure_reason = (
                 "모든 패턴을 적용했지만 데이터를 추출하지 못했습니다."
             )
+            file.extracted_info = {} # 추출 실패 시 extracted_info 초기화
             self.file_repository.save(file)  # 파일 상태 업데이트
             return None

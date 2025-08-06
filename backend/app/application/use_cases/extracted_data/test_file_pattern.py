@@ -1,34 +1,24 @@
 from typing import Dict, Any, Optional, List
 from app.domain.file.model import File
 from app.domain.file.repository import FileRepository
-from app.domain.file_change_pattern.model import FileChangePattern
-from app.domain.file_change_pattern.repository import FileChangePatternRepository
 from app.application.use_cases.extracted_data.extract_data_from_file import ExtractDataFromFileUseCase
 
-
-class CreateFileChangePatternUseCase:
+class TestFilePatternUseCase:
     def __init__(
         self,
-        repository: FileChangePatternRepository,
         file_repository: FileRepository,
         extract_data_from_file_use_case: ExtractDataFromFileUseCase,
     ):
-        self.repository = repository
         self.file_repository = file_repository
         self.extract_data_from_file_use_case = extract_data_from_file_use_case
 
-    def execute(
-        self, name: str, regex_pattern: str, replacement_format: str, file_ids: List[int]
-    ) -> Dict[int, Optional[Dict[str, Any]]]:
+    def execute(self, file_ids: List[int], pattern_string: str) -> Dict[int, Optional[Dict[str, Any]]]:
         results: Dict[int, Optional[Dict[str, Any]]] = {}
-
-        # 임시 패턴 객체 생성 (저장하지 않음)
-        temp_pattern = FileChangePattern(
-            name=name,
-            regex_pattern=regex_pattern,
-            replacement_format=replacement_format,
-            is_confirmed=False # 테스트용이므로 False
-        )
+        
+        # FileChangePattern 모델을 직접 생성하여 사용
+        # 이 부분은 실제 패턴 테스트를 위해 임시로 FileChangePattern 객체를 생성하는 방식입니다.
+        # 필요에 따라 FileChangePattern 모델에 from_string_pattern과 같은 팩토리 메서드를 추가할 수 있습니다.
+        temp_pattern = FileChangePattern(regex_pattern=pattern_string, replacement_format=pattern_string) 
 
         for file_id in file_ids:
             file = self.file_repository.find_by_id(file_id)

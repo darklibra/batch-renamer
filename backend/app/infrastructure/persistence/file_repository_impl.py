@@ -23,8 +23,18 @@ class FileRepositoryImpl(FileRepository):
         statement = select(File).where(File.full_path.in_(paths))
         return self.session.exec(statement).all()
 
-    def find_all(self, skip: int = 0, limit: int = 10) -> List[File]:
-        statement = select(File).offset(skip).limit(limit)
+    def find_by_ids(self, ids: List[int]) -> List[File]:
+        statement = select(File).where(File.id.in_(ids))
+        return self.session.exec(statement).all()
+
+    def find_all(self, skip: int = 0, limit: int = 10, sort_field: Optional[str] = None, sort_order: Optional[str] = None) -> List[File]:
+        statement = select(File)
+        if sort_field:
+            if sort_order and sort_order.lower() == "desc":
+                statement = statement.order_by(getattr(File, sort_field).desc())
+            else:
+                statement = statement.order_by(getattr(File, sort_field).asc())
+        statement = statement.offset(skip).limit(limit)
         return self.session.exec(statement).all()
 
     def count_all(self) -> int:
