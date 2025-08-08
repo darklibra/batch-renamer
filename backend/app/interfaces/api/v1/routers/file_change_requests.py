@@ -1,7 +1,7 @@
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from typing import List
-from fastapi.responses import JSONResponse
+# from fastapi.responses import JSONResponse
 from app.domain.file_change_request.model import FileChangeRequest
 from app.interfaces.api.v1.dtos.file_change_request_dtos import CreateFileChangeRequestDto, FileChangeRequestResponse, FileChangeRequestListResponse, FileChangeRequestDetailResponse
 from app.application.use_cases.file_change_request.create_file_change_request import CreateFileChangeRequestUseCase
@@ -32,6 +32,7 @@ def get_all_file_change_requests(
     use_case: GetFileChangeRequestsUseCase = Depends(get_get_file_change_requests_use_case),
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
+    response: Response = None
 ):
     requests, total_count = use_case.execute(skip=(page - 1) * per_page, limit=per_page)
 
@@ -39,12 +40,9 @@ def get_all_file_change_requests(
     content_range_end = content_range_start + len(requests) - 1
     content_range = f"file-change-requests {content_range_start}-{content_range_end}/{total_count}"
 
-    response_data = [FileChangeRequestListResponse.model_validate(r).model_dump() for r in requests]
+    response.headers["Content-Range"] = content_range
 
-    return JSONResponse(
-        content=response_data,
-        headers={"Content-Range": content_range}
-    )
+    return [FileChangeRequestListResponse.model_validate(r) for r in requests]
 
 @router.get("/{request_id}", response_model=FileChangeRequestDetailResponse)
 def get_file_change_request_detail(

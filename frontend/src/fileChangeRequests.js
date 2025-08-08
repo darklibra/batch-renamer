@@ -1,6 +1,7 @@
 
-import React from 'react';
-import { List, Datagrid, TextField, DateField, NumberField, ReferenceField, Show, SimpleShowLayout, FunctionField, Create, SimpleForm, TextInput, ReferenceInput, SelectInput } from 'react-admin';
+import React, { useState, useEffect } from 'react';
+import { List, Datagrid, TextField, DateField, NumberField, ReferenceField, Show, SimpleShowLayout, FunctionField, Create, SimpleForm, TextInput, ReferenceInput, SelectInput, useNotify } from 'react-admin';
+import dataProvider from './dataProvider';
 
 export const FileChangeRequestList = () => (
     <List>
@@ -49,14 +50,58 @@ export const FileChangeRequestShow = () => (
     </Show>
 );
 
-export const FileChangeRequestCreate = () => (
-    <Create>
-        <SimpleForm>
-            <ReferenceInput source="file_change_pattern_id" reference="file-change-patterns">
-                <SelectInput optionText="name" />
-            </ReferenceInput>
-            <TextInput source="rename_pattern_string" label="Rename Pattern" fullWidth />
-            <TextInput source="destination_path" label="Destination Path" fullWidth />
-        </SimpleForm>
-    </Create>
-);
+export const FileChangeRequestCreate = (props) => {
+    const notify = useNotify();
+    const [selectedPatternId, setSelectedPatternId] = useState(null);
+    const [availableRegexVariables, setAvailableRegexVariables] = useState([]);
+    const [availableReplacementKeys, setAvailableReplacementKeys] = useState([]);
+
+    useEffect(() => {
+        if (selectedPatternId) {
+            dataProvider.getRegexVariables(selectedPatternId)
+                .then(variables => {
+                    setAvailableRegexVariables(variables);
+                })
+                .catch(error => {
+                    notify(`정규식 변수 로드 오류: ${error.message}`, { type: 'warning' });
+                    setAvailableRegexVariables([]);
+                });
+            
+            dataProvider.getReplacementFormatKeys(selectedPatternId)
+                .then(keys => {
+                    setAvailableReplacementKeys(keys);
+                })
+                .catch(error => {
+                    notify(`교체 형식 키 로드 오류: ${error.message}`, { type: 'warning' });
+                    setAvailableReplacementKeys([]);
+                });
+        } else {
+            setAvailableRegexVariables([]);
+            setAvailableReplacementKeys([]);
+        }
+    }, [selectedPatternId, notify]);
+
+    return (
+        <Create {...props}>
+            <SimpleForm>
+                <ReferenceInput 
+                    source="file_change_pattern_id" 
+                    reference="file-change-patterns" 
+                    onChange={(e) => setSelectedPatternId(e.target.value)}
+                >
+                    <SelectInput optionText="name" />
+                </ReferenceInput>
+                <TextInput 
+                    source="rename_pattern_string" 
+                    label="Rename Pattern" 
+                    fullWidth 
+                    helperText={selectedPatternId 
+                        ? `정규식 변수: {${availableRegexVariables.join('}, {')}} | 교체 형식 키: {${availableReplacementKeys.join('}, {')}}` 
+                        : '패턴을 선택하면 사용 가능한 변수가 표시됩니다.'
+                    }
+                />
+                <TextInput source="destination_path" label="Destination Path" fullWidth />
+            </SimpleForm>
+        </Create>
+    );
+};

@@ -25,9 +25,8 @@ const App = () => (
     <Resource 
       name="file-change-patterns" 
       list={FileChangePatternList} 
-      edit={FileChangePatternEdit} 
+      edit={FileChangePatternEdit}
       create={FileChangePatternCreate} 
-      show={RenameAndCopyDetail}
     />
     <Resource 
       name="exclusion-patterns" 

@@ -163,12 +163,29 @@ def get_confirm_file_change_pattern_use_case(
     )
 
 
+from app.application.use_cases.file_change_pattern.get_regex_variables import GetRegexVariablesUseCase
+from app.application.use_cases.file_change_pattern.get_replacement_format_keys import GetReplacementFormatKeysUseCase
+
 def get_get_file_change_patterns_use_case(
     repository: FileChangePatternRepository = Depends(
         get_file_change_pattern_repository
     ),
 ) -> GetFileChangePatternsUseCase:
     return GetFileChangePatternsUseCase(repository=repository)
+
+def get_get_regex_variables_use_case(
+    repository: FileChangePatternRepository = Depends(
+        get_file_change_pattern_repository
+    ),
+) -> GetRegexVariablesUseCase:
+    return GetRegexVariablesUseCase(repository=repository)
+
+def get_get_replacement_format_keys_use_case(
+    repository: FileChangePatternRepository = Depends(
+        get_file_change_pattern_repository
+    ),
+) -> GetReplacementFormatKeysUseCase:
+    return GetReplacementFormatKeysUseCase(repository=repository)
 
 
 def get_update_file_change_pattern_use_case(
@@ -291,6 +308,14 @@ from app.application.use_cases.file_change_request.create_file_change_request im
 
 from app.application.use_cases.file_change_request.get_file_change_requests import GetFileChangeRequestsUseCase
 from app.application.use_cases.file_change_request.get_file_change_request_detail import GetFileChangeRequestDetailUseCase
+
+from app.application.use_cases.extracted_data.get_extracted_data_by_pattern import GetExtractedDataByPatternUseCase
+
+def get_get_extracted_data_by_pattern_use_case(
+    repository: ExtractedDataRepository = Depends(get_extracted_data_repository),
+) -> GetExtractedDataByPatternUseCase:
+    return GetExtractedDataByPatternUseCase(repository=repository)
+
 
 def get_file_change_request_repository(
     session: Session = Depends(get_session)

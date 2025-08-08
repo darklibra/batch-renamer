@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { List, Datagrid, TextField, Edit, Create, SimpleForm, TextInput, EditButton, Pagination, useListContext, BulkDeleteButton, Button } from 'react-admin';
+import { List, Datagrid, TextField, Edit, Create, SimpleForm, TextInput, EditButton, Pagination, useListContext, BulkDeleteButton, Button, BooleanField } from 'react-admin';
 import { Box, Typography, Paper, List as MuiList, ListItem as MuiListItem, ListItemText as MuiListItemText, Checkbox } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useNotify, useRedirect, useRecordContext, useFormState } from 'react-admin';
@@ -89,7 +89,9 @@ const FileChangePatternEditForm = () => {
 
   const [name, setName] = useState(record ? record.name : '');
   const [regexPattern, setRegexPattern] = useState(record ? record.regex_pattern : '');
+  const [regexVariables, setRegexVariables] = useState([]);
   const [replacementFormat, setReplacementFormat] = useState(record ? record.replacement_format : '');
+  const [extractedData, setExtractedData] = useState([]);
 
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [selectedTestFiles, setSelectedTestFiles] = useState([]);
@@ -103,8 +105,20 @@ const FileChangePatternEditForm = () => {
       setName(record.name);
       setRegexPattern(record.regex_pattern);
       setReplacementFormat(record.replacement_format);
+
+      // 패턴 ID가 있을 경우 추출된 데이터 로드
+      if (record.id) {
+        dataProvider.getExtractedDataByPattern(record.id)
+          .then(response => {
+            setExtractedData(response);
+          })
+          .catch(error => {
+            console.error('추출된 데이터 로드 중 오류 발생:', error);
+            notify('추출된 데이터 로드 중 오류 발생', { type: 'error' });
+          });
+      }
     }
-  }, [record]);
+  }, [record, notify]);
 
   const memoizedInitialSelectedFileIds = React.useMemo(() => {
     return Array.from(popupSelectedFileIds);
@@ -182,9 +196,27 @@ const FileChangePatternEditForm = () => {
 
   return (
     <SimpleForm onSubmit={() => { }} toolbar={null}> {/*onSubmit 제거, toolbar 제거 */}
+      <TextInput source="id" label="ID" value={record ? record.id : ''} fullWidth disabled />
       <TextInput source="name" label="패턴 이름" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
-      <TextInput source="regex_pattern" label="정규식 패턴" value={regexPattern} onChange={(e) => setRegexPattern(e.target.value)} fullWidth />
+      <TextInput source="regex_pattern" label="정규식 패턴" value={regexPattern} onChange={async (e) => {
+        setRegexPattern(e.target.value);
+        try {
+          const response = await dataProvider.getRegexVariables(e.target.value);
+          setRegexVariables(response.data);
+        } catch (error) {
+          console.error('정규식 변수 가져오기 오류:', error);
+          setRegexVariables([]);
+        }
+      }} fullWidth />
+      {regexVariables.length > 0 && (
+        <Box sx={{ mt: -1, mb: 1, ml: 2 }}>
+          <Typography variant="body2" color="textSecondary">
+            사용 가능한 변수: {regexVariables.map(v => `{${v}}`).join(', ')}
+          </Typography>
+        </Box>
+      )}
       <TextInput source="replacement_format" label="교체 형식 (JSON)" value={replacementFormat} onChange={(e) => setReplacementFormat(e.target.value)} fullWidth helperText={`예: {"name": "$0:s$", "start": "$1:d$"}`} />
+      <Checkbox source="is_confirmed" label="확인됨" disabled />
 
       <Box sx={{ mt: 2, mb: 2 }}>
         <Typography variant="h6" gutterBottom>테스트 파일 선택</Typography>
@@ -240,6 +272,8 @@ const FileChangePatternEditForm = () => {
           )}
         </Paper>
       )}
+
+      
     </SimpleForm>
   );
 };
@@ -251,6 +285,7 @@ export const FileChangePatternCreate = () => {
   const [name, setName] = useState('');
   const [regexPattern, setRegexPattern] = useState('');
   const [replacementFormat, setReplacementFormat] = useState('');
+  const [regexVariables, setRegexVariables] = useState([]);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [selectedTestFiles, setSelectedTestFiles] = useState([]); // 파일 테스트를 위한 선택된 파일
   const [popupSelectedFileIds, setPopupSelectedFileIds] = useState(new Set()); // 팝업에서 선택된 파일 ID
@@ -329,7 +364,23 @@ export const FileChangePatternCreate = () => {
     <Create title="새 파일 변경 패턴 생성">
       <SimpleForm onSubmit={() => { }} toolbar={null}> {/*onSubmit 제거, toolbar 제거 */}
         <TextInput source="name" label="패턴 이름" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
-        <TextInput source="regex_pattern" label="정규식 패턴" value={regexPattern} onChange={(e) => setRegexPattern(e.target.value)} fullWidth />
+        <TextInput source="regex_pattern" label="정규식 패턴" value={regexPattern} onChange={async (e) => {
+          setRegexPattern(e.target.value);
+          try {
+            const response = await dataProvider.getRegexVariables(e.target.value);
+            setRegexVariables(response.data);
+          } catch (error) {
+            console.error('정규식 변수 가져오기 오류:', error);
+            setRegexVariables([]);
+          }
+        }} fullWidth />
+        {regexVariables.length > 0 && (
+          <Box sx={{ mt: -1, mb: 1, ml: 2 }}>
+            <Typography variant="body2" color="textSecondary">
+              사용 가능한 변수: {regexVariables.map(v => `{${v}}`).join(', ')}
+            </Typography>
+          </Box>
+        )}
         <TextInput source="replacement_format" label="교체 형식 (JSON)" value={replacementFormat} onChange={(e) => setReplacementFormat(e.target.value)} fullWidth helperText={`예: {"name": "$0:s$", "start": "$1:d$"}`} />
 
         <Box sx={{ mt: 2, mb: 2 }}>

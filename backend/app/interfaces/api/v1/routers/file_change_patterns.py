@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from app.application.use_cases.extracted_data.get_extracted_data_by_pattern import GetExtractedDataByPatternUseCase
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List
+from fastapi.responses import JSONResponse
 from app.application.use_cases.file_change_pattern.create_file_change_pattern import CreateFileChangePatternUseCase
 from app.application.use_cases.file_change_pattern.get_file_change_patterns import GetFileChangePatternsUseCase
 from app.application.use_cases.file_change_pattern.update_file_change_pattern import UpdateFileChangePatternUseCase
@@ -23,6 +26,11 @@ from app.interfaces.api.v1.dtos.file_change_pattern_dtos import (
     ApplySavedPatternRequest
 )
 from app.application.exceptions import UseCaseException, PatternNotFoundException
+
+from app.application.use_cases.file_change_pattern.get_regex_variables import GetRegexVariablesUseCase
+from app.application.use_cases.file_change_pattern.get_replacement_format_keys import GetReplacementFormatKeysUseCase
+from app.interfaces.api.dependencies import get_get_regex_variables_use_case, get_get_replacement_format_keys_use_case, get_get_extracted_data_by_pattern_use_case
+from app.interfaces.api.v1.dtos.extracted_data_dtos import ExtractedDataResponse
 
 router = APIRouter()
 
@@ -65,9 +73,6 @@ def confirm_pattern(
     except UseCaseException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-from fastapi import Query
-from fastapi.responses import JSONResponse
-
 @router.get(
     "/",
     response_model=FileChangePatternListResponse
@@ -97,10 +102,55 @@ def get_pattern_by_id(
     use_case: GetFileChangePatternsUseCase = Depends(get_get_file_change_patterns_use_case)
 ):
     try:
-        patterns = use_case.execute(pattern_id=pattern_id)
-        return FileChangePatternResponse.model_validate(patterns[0])
+        patterns, _ = use_case.execute(pattern_id=pattern_id)
+        if not patterns:
+            raise PatternNotFoundException(f"패턴을 찾을 수 없습니다: {pattern_id}")
+        
+        return FileChangePatternResponse.model_validate(patterns[0], from_attributes=True)
     except PatternNotFoundException as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+@router.post(
+    "/regex-variables",
+    response_model=List[str]
+)
+def get_regex_variables(
+    regex_pattern: str = Query(..., description="정규식 패턴"),
+    use_case: GetRegexVariablesUseCase = Depends(get_get_regex_variables_use_case)
+):
+    try:
+        variables = use_case.execute(regex_pattern=regex_pattern)
+        return variables
+    except UseCaseException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.get(
+    "/{pattern_id}/replacement-keys",
+    response_model=List[str]
+)
+def get_replacement_format_keys(
+    pattern_id: int,
+    use_case: GetReplacementFormatKeysUseCase = Depends(get_get_replacement_format_keys_use_case)
+):
+    try:
+        keys = use_case.execute(pattern_id=pattern_id)
+        return keys
+    except PatternNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+@router.get(
+    "/{pattern_id}/extracted-data",
+    response_model=List[ExtractedDataResponse]
+)
+def get_extracted_data_by_pattern(
+    pattern_id: int,
+    use_case: GetExtractedDataByPatternUseCase = Depends(get_get_extracted_data_by_pattern_use_case)
+):
+    try:
+        extracted_data = use_case.execute(pattern_id=pattern_id)
+        return [ExtractedDataResponse.model_validate(data, from_attributes=True) for data in extracted_data]
+    except UseCaseException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.put(
     "/{pattern_id}",

@@ -25,6 +25,10 @@ class ExtractedDataRepositoryImpl(ExtractedDataRepository):
             self.session.delete(data)
         self.session.commit()
 
+    def find_by_pattern_id(self, pattern_id: int) -> List[ExtractedData]:
+        statement = select(ExtractedData).where(ExtractedData.pattern_id == pattern_id)
+        return self.session.exec(statement).all()
+
     def delete_by_file_id_and_pattern_id(self, file_id: int, pattern_id: int) -> None:
         statement = select(ExtractedData).where(
             ExtractedData.file_id == file_id, ExtractedData.pattern_id == pattern_id
