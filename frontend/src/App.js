@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Admin, Resource, Layout, CustomRoutes } from 'react-admin';
 import { Route } from 'react-router-dom';
@@ -5,9 +6,12 @@ import dataProvider from './dataProvider';
 import { FileList } from './files';
 import { FileChangePatternList, FileChangePatternEdit, FileChangePatternCreate } from './fileChangePatterns';
 import { ExclusionPatternList, ExclusionPatternEdit, ExclusionPatternCreate } from './exclusionPatterns';
-import FileScanner from './FileScanner'; // FileScanner 임포트
+import FileScanner from './FileScanner';
 import PatternTester from './PatternTester';
-import MyMenu from './MyMenu'; // MyMenu 임포트
+import MyMenu from './MyMenu';
+import RenameAndCopyDetail from './RenameAndCopyDetail';
+
+import { FileChangeRequestList, FileChangeRequestShow, FileChangeRequestCreate } from './fileChangeRequests';
 
 const MyLayout = (props) => <Layout {...props} appBar={() => null} menu={MyMenu} />;
 
@@ -23,12 +27,19 @@ const App = () => (
       list={FileChangePatternList} 
       edit={FileChangePatternEdit} 
       create={FileChangePatternCreate} 
+      show={RenameAndCopyDetail}
     />
     <Resource 
       name="exclusion-patterns" 
       list={ExclusionPatternList} 
       edit={ExclusionPatternEdit} 
       create={ExclusionPatternCreate} 
+    />
+    <Resource 
+      name="file-change-requests" 
+      list={FileChangeRequestList} 
+      show={FileChangeRequestShow}
+      create={FileChangeRequestCreate}
     />
   </Admin>
 );

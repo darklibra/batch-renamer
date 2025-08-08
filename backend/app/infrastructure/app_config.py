@@ -1,29 +1,20 @@
 import os
 from sqlmodel import create_engine, SQLModel, Session
+import importlib
 
 from .config.settings_base import BaseConfig
-from .config.settings_local import LocalConfig
-
-# 다른 환경 설정이 있다면 여기에 추가
-# from .config.settings_dev import DevConfig
-# from .config.settings_prod import ProdConfig
-
 
 def get_settings() -> BaseConfig:
     env = os.getenv("ENV_NAME", "local").lower()
-
-    if env == "local":
-        return LocalConfig()
-    # elif env == "dev":
-    #     return DevConfig()
-    # elif env == "prod":
-    #     return ProdConfig()
-    else:
-        print(
-            f"경고: '{env}' 환경에 대한 설정 파일을 찾을 수 없습니다. 기본 설정을 사용합니다."
-        )
+    try:
+        module_path = f"app.infrastructure.config.settings_{env}"
+        module = importlib.import_module(module_path)
+        config_class_name = f"{env.capitalize()}Config"
+        config_class = getattr(module, config_class_name)
+        return config_class()
+    except (ImportError, AttributeError):
+        # 기본 설정 또는 에러 처리
         return BaseConfig()
-
 
 settings = get_settings()
 

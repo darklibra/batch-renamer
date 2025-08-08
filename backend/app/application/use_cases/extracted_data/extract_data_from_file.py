@@ -1,7 +1,6 @@
 import re
 import json # Added import
 from typing import Dict, Any, Optional
-import unicodedata
 from app.domain.file.model import File
 from app.domain.file_change_pattern.model import FileChangePattern
 

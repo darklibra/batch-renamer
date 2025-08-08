@@ -1,5 +1,4 @@
 from typing import List
-from fastapi import HTTPException
 from app.domain.file_change_pattern.repository import FileChangePatternRepository
 from app.domain.file.repository import FileRepository
 from app.domain.extracted_data.repository import ExtractedDataRepository
@@ -7,8 +6,6 @@ from app.domain.file_change_pattern.model import FileChangePattern
 from app.domain.file.model import File
 from app.domain.extracted_data.model import ExtractedData
 from app.application.use_cases.extracted_data.extract_data_from_file import ExtractDataFromFileUseCase
-import re
-import orjson
 
 class ApplySavedPatternUseCase:
     def __init__(
@@ -26,8 +23,10 @@ class ApplySavedPatternUseCase:
     def execute(self, pattern_ids: List[int], file_ids: List[int]):
         patterns = self.file_change_pattern_repository.find_by_ids(pattern_ids)
         
+        from app.application.exceptions import PatternNotFoundException
+
         if not patterns:
-            raise HTTPException(status_code=404, detail="적용할 패턴을 찾을 수 없습니다.")
+            raise PatternNotFoundException()
 
         if file_ids == ['all']:
             BATCH_SIZE = 100

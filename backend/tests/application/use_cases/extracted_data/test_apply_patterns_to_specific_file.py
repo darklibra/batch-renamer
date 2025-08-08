@@ -9,6 +9,7 @@ from app.domain.file.repository import FileRepository
 from app.domain.file_change_pattern.model import FileChangePattern
 from app.domain.file_change_pattern.repository import FileChangePatternRepository
 from app.domain.extracted_data.model import ExtractedData
+from app.application.exceptions import FileNotFoundException, PatternNotFoundException, FileProcessingException
 
 @pytest.fixture
 def mock_file_repository(mocker) -> MagicMock:
@@ -43,15 +44,16 @@ def sample_file() -> File:
         directory="/path/to/docs",
         full_path="/path/to/docs/document.pdf",
         size=1024,
-        extraction_failed=True, # Simulate a previously failed extraction
-        extraction_failure_reason="Previous failure"
+        extracted_info={}, # extracted_info 초기화
+        extraction_failed=False, # 초기 상태는 실패 아님
+        extraction_failure_reason=None
     )
 
 @pytest.fixture
 def sample_patterns() -> List[FileChangePattern]:
     return [
-        FileChangePattern(id=1, name="Pattern A", regex_pattern="", replacement_pattern=""),
-        FileChangePattern(id=2, name="Pattern B", regex_pattern="", replacement_pattern=""),
+        FileChangePattern(id=1, name="Pattern A", regex_pattern="", replacement_format=""),
+        FileChangePattern(id=2, name="Pattern B", regex_pattern="", replacement_format=""),
     ]
 
 def test_execute_success(apply_patterns_to_specific_file_use_case,
@@ -69,7 +71,7 @@ def test_execute_success(apply_patterns_to_specific_file_use_case,
 
     result = apply_patterns_to_specific_file_use_case.execute(sample_file.id)
 
-    assert result == mock_extracted_data
+    assert result == sample_file # 이제 File 객체를 반환
     mock_file_repository.find_by_id.assert_called_once_with(sample_file.id)
     mock_file_change_pattern_repository.find_all.assert_called_once()
     mock_apply_patterns_to_file_use_case.execute.assert_called_once_with(sample_file, sample_patterns)
@@ -78,53 +80,49 @@ def test_execute_success(apply_patterns_to_specific_file_use_case,
     assert sample_file.extraction_failure_reason is None
 
 def test_execute_file_not_found(apply_patterns_to_specific_file_use_case,
-                                mock_file_repository,
-                                mock_file_change_pattern_repository,
-                                mock_apply_patterns_to_file_use_case):
-    """파일이 존재하지 않을 때 None이 반환되는지 확인"""
+                                mock_file_repository):
+    """파일이 존재하지 않을 때 FileNotFoundException이 발생하는지 확인"""
     mock_file_repository.find_by_id.return_value = None
 
-    result = apply_patterns_to_specific_file_use_case.execute(999)
+    with pytest.raises(FileNotFoundException) as excinfo:
+        apply_patterns_to_specific_file_use_case.execute(999)
 
-    assert result is None
+    assert "파일을 찾을 수 없습니다: 999" in str(excinfo.value)
     mock_file_repository.find_by_id.assert_called_once_with(999)
-    mock_file_change_pattern_repository.find_all.assert_not_called()
-    mock_apply_patterns_to_file_use_case.execute.assert_not_called()
 
 def test_execute_no_patterns(apply_patterns_to_specific_file_use_case,
                              mock_file_repository,
                              mock_file_change_pattern_repository,
-                             mock_apply_patterns_to_file_use_case,
                              sample_file):
-    """패턴이 존재하지 않을 때 None이 반환되는지 확인"""
+    """패턴이 존재하지 않을 때 PatternNotFoundException이 발생하는지 확인"""
     mock_file_repository.find_by_id.return_value = sample_file
     mock_file_change_pattern_repository.find_all.return_value = []
 
-    result = apply_patterns_to_specific_file_use_case.execute(sample_file.id)
+    with pytest.raises(PatternNotFoundException) as excinfo:
+        apply_patterns_to_specific_file_use_case.execute(sample_file.id)
 
-    assert result is None
+    assert "적용할 패턴이 없습니다." in str(excinfo.value)
     mock_file_repository.find_by_id.assert_called_once_with(sample_file.id)
     mock_file_change_pattern_repository.find_all.assert_called_once()
-    mock_apply_patterns_to_file_use_case.execute.assert_not_called()
 
 def test_execute_apply_patterns_fails(apply_patterns_to_specific_file_use_case,
                                      mock_file_repository,
                                      mock_file_change_pattern_repository,
                                      mock_apply_patterns_to_file_use_case,
                                      sample_file, sample_patterns):
-    """패턴 적용이 실패했을 때 None이 반환되고 파일 상태가 유지되는지 확인"""
+    """패턴 적용이 실패했을 때 FileProcessingException이 발생하는지 확인"""
     mock_file_repository.find_by_id.return_value = sample_file
     mock_file_change_pattern_repository.find_all.return_value = sample_patterns
     mock_apply_patterns_to_file_use_case.execute.return_value = None
     mock_file_repository.save.side_effect = lambda x: x # Mock save to update the file object
 
-    result = apply_patterns_to_specific_file_use_case.execute(sample_file.id)
+    with pytest.raises(FileProcessingException) as excinfo:
+        apply_patterns_to_specific_file_use_case.execute(sample_file.id)
 
-    assert result is None
+    assert "파일에서 데이터를 추출하지 못했습니다." in str(excinfo.value)
     mock_file_repository.find_by_id.assert_called_once_with(sample_file.id)
     mock_file_change_pattern_repository.find_all.assert_called_once()
     mock_apply_patterns_to_file_use_case.execute.assert_called_once_with(sample_file, sample_patterns)
-    # file.extraction_failed and extraction_failure_reason should remain as they were
+    mock_file_repository.save.assert_called_once() # 추출 실패 시에도 파일 상태 업데이트를 위해 save 호출
     assert sample_file.extraction_failed is True
-    assert sample_file.extraction_failure_reason == "Previous failure"
-    mock_file_repository.save.assert_not_called() # No need to save if extraction failed
+    assert sample_file.extraction_failure_reason == "모든 패턴을 적용했지만 데이터를 추출하지 못했습니다."

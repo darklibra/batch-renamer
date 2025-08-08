@@ -1,7 +1,10 @@
-from sqlmodel import Field, Relationship, JSON, Column
-from typing import Optional, List, Dict, Any
+from sqlmodel import Field, Relationship, Column
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from app.domain.base_model import TimestampedBase
 from app.domain.custom_types import JsonEncodedDict
+
+if TYPE_CHECKING:
+    from app.domain.extracted_data.model import ExtractedData
 
 class File(TimestampedBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

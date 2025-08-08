@@ -3,7 +3,8 @@ from app.domain.file_change_pattern.model import FileChangePattern
 from app.domain.file_change_pattern.repository import FileChangePatternRepository
 from app.application.use_cases.extracted_data.reapply_patterns_to_all_files import (
     ReapplyPatternsToAllFilesUseCase,
-)  # 추가
+)
+from app.application.exceptions import PatternNotFoundException
 
 
 class UpdateFileChangePatternUseCase:
@@ -21,10 +22,10 @@ class UpdateFileChangePatternUseCase:
         name: Optional[str] = None,
         regex_pattern: Optional[str] = None,
         replacement_format: Optional[str] = None,
-    ) -> Optional[FileChangePattern]:
+    ) -> FileChangePattern:
         pattern = self.repository.find_by_id(pattern_id)
         if not pattern:
-            return None
+            raise PatternNotFoundException(f"패턴을 찾을 수 없습니다: {pattern_id}")
 
         if name:
             pattern.name = name

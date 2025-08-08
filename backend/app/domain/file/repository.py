@@ -30,3 +30,7 @@ class FileRepository(ABC):
     @abstractmethod
     def find_by_id(self, file_id: int) -> Optional[File]:
         pass
+
+    @abstractmethod
+    def find_by_pattern_id(self, pattern_id: int) -> List[File]:
+        pass

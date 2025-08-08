@@ -1,6 +1,10 @@
 from sqlmodel import Field, Relationship
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from app.domain.base_model import TimestampedBase
+
+if TYPE_CHECKING:
+    from app.domain.extracted_data.model import ExtractedData
+    from app.domain.file_change_request.model import FileChangeRequest
 
 class FileChangePattern(TimestampedBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -10,3 +14,4 @@ class FileChangePattern(TimestampedBase, table=True):
     is_confirmed: bool = Field(default=False) # 패턴 확인 여부
 
     extracted_data: List["ExtractedData"] = Relationship(back_populates="pattern")
+    change_requests: List["FileChangeRequest"] = Relationship(back_populates="pattern")

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from typing import List, Optional
+from typing import List
 from fastapi.responses import JSONResponse
 from app.application.use_cases.exclusion_pattern.create_exclusion_pattern import CreateExclusionPatternUseCase
 from app.application.use_cases.exclusion_pattern.get_exclusion_patterns import GetExclusionPatternsUseCase
@@ -14,9 +14,9 @@ from app.interfaces.api.dependencies import (
 from app.interfaces.api.v1.dtos.exclusion_pattern_dtos import (
     ExclusionPatternCreate,
     ExclusionPatternUpdate,
-    ExclusionPatternResponse,
-    ExclusionPatternListResponse
+    ExclusionPatternResponse
 )
+from app.application.exceptions import UseCaseException, PatternAlreadyExistsException, PatternNotFoundException
 
 router = APIRouter()
 
@@ -36,7 +36,9 @@ def create_exclusion_pattern(
             is_active=request.is_active
         )
         return ExclusionPatternResponse.model_validate(pattern)
-    except Exception as e:
+    except PatternAlreadyExistsException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except UseCaseException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.get(
@@ -48,10 +50,7 @@ def get_all_exclusion_patterns(
     _start: int = Query(0, alias="_start"),
     _end: int = Query(10, alias="_end"),
 ):
-    skip = _start
-    limit = _end - _start
-    patterns = use_case.execute(skip=skip, limit=limit)
-    total_count = use_case.count()
+    patterns, total_count = use_case.execute(skip=_start, limit=_end - _start)
 
     response_data = [ExclusionPatternResponse.model_validate(p).model_dump() for p in patterns]
     
@@ -70,10 +69,11 @@ def get_exclusion_pattern_by_id(
     pattern_id: int,
     use_case: GetExclusionPatternsUseCase = Depends(get_get_exclusion_patterns_use_case)
 ):
-    patterns = use_case.execute(pattern_id=pattern_id)
-    if not patterns:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exclusion pattern not found")
-    return ExclusionPatternResponse.model_validate(patterns[0])
+    try:
+        patterns, _ = use_case.execute(pattern_id=pattern_id)
+        return ExclusionPatternResponse.model_validate(patterns[0])
+    except PatternNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 @router.put(
     "/{pattern_id}",
@@ -84,15 +84,18 @@ def update_exclusion_pattern(
     request: ExclusionPatternUpdate,
     use_case: UpdateExclusionPatternUseCase = Depends(get_update_exclusion_pattern_use_case)
 ):
-    updated_pattern = use_case.execute(
-        pattern_id=pattern_id,
-        name=request.name,
-        pattern=request.pattern,
-        is_active=request.is_active
-    )
-    if not updated_pattern:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exclusion pattern not found")
-    return ExclusionPatternResponse.model_validate(updated_pattern)
+    try:
+        updated_pattern = use_case.execute(
+            pattern_id=pattern_id,
+            name=request.name,
+            pattern=request.pattern,
+            is_active=request.is_active
+        )
+        return ExclusionPatternResponse.model_validate(updated_pattern)
+    except PatternNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except UseCaseException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.delete(
     "/{pattern_id}",

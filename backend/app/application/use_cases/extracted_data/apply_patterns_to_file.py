@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Dict, Any
 from app.domain.file.model import File
 from app.domain.file.repository import FileRepository  # 추가
 from app.domain.file_change_pattern.model import FileChangePattern

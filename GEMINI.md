@@ -111,7 +111,7 @@ class LocalConfig(BaseConfig):
 
 #### 📄 .env 예시 (.env.dev, .env.prod 등)
 ```python
-DATABASE_URL=postgresql://user:password@host:5432/gemini_db
+DATABASE_URL=postgresql://...
 REDIS_URL=redis://localhost:6379/0
 SECRET_KEY=super-secret-key
 ```
@@ -213,7 +213,6 @@ from app.interfaces.api.dependencies import get_issue_coupon_use_case
 
 router = APIRouter()
 
-@router.post("/issue", response_model=CouponIssuedResponseDto)
 def issue_coupon_handler(
     request: IssueCouponRequestDto,
     use_case: IssueCouponUseCase = Depends(get_issue_coupon_use_case)
@@ -301,11 +300,11 @@ from application.exceptions import UseCaseException
 from domain.exceptions import DomainException
 
 def register_exception_handlers(app):
-    @app.exception_handler(UseCaseException)
+    app.exception_handler(UseCaseException)
     async def use_case_exception_handler(request: Request, exc: UseCaseException):
         return JSONResponse(status_code=400, content={"detail": str(exc)})
 
-    @app.exception_handler(DomainException)
+    app.exception_handler(DomainException)
     async def domain_exception_handler(request: Request, exc: DomainException):
         return JSONResponse(status_code=422, content={"detail": str(exc)})
 ```
@@ -354,14 +353,14 @@ from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
-@router.post("/coupon/issue", response_model=CouponIssuedResponseDto)
+router.post("/coupon/issue", response_model=CouponIssuedResponseDto)
 def issue_coupon_handler(
     request: IssueCouponRequestDto,
     use_case: IssueCouponUseCase = Depends(get_issue_coupon_use_case)
 ):
     return use_case.execute(request)
 
-@router.get("/files", response_model=List[FileResponse])
+router.get("/files", response_model=List[FileResponse])
 def get_all_files(
     file_repository: FileRepository = Depends(get_file_repository),
     page: int = Query(1, ge=1),
@@ -423,7 +422,7 @@ from app.interfaces.api.dependencies import get_current_user, get_db
 
 router = APIRouter()
 
-@router.put("/posts/{post_id}")
+router.put("/posts/{post_id}")
 def update_post(
     post_id: int,
     post_in: PostUpdateRequest,
@@ -454,7 +453,7 @@ from app.interfaces.api.dependencies import get_current_user
 
 router = APIRouter()
 
-@router.put("/posts/{post_id}", response_model=PostResponse)
+router.put("/posts/{post_id}", response_model=PostResponse)
 def update_post_handler(
     post_id: int,
     post_in: PostUpdateRequest,
@@ -516,7 +515,7 @@ from app.interfaces.api.dependencies import get_current_user
 
 router = APIRouter()
 
-@router.put("/posts/{post_id}", response_model=PostResponse)
+router.put("/posts/{post_id}", response_model=PostResponse)
 def update_post_handler(
     post_id: int,
     post_in: PostUpdateRequest,
@@ -547,7 +546,7 @@ def update_post_handler(
 | 범위 제한                  | 계층 단위로 테스트 작성, 상위 계층 통합 금지                                                                                                                                                                                                                   |
 | 커버리지 기준              | 도메인 로직 100%, 유즈케이스 80% 이상                                                                                                                                                                                                                          |
 | 테스트 더블                | `unittest.mock`, `pytest-mock` 또는 `FakeRepository` 활용                                                                                                                                                                                                      |
-| 속도                       | 1초 이상 소요 시 별도 태그 `@pytest.mark.slow`                                                                                                                                                                                                                 |
+| 속도                       | 1초 이상 소요 시 별도 태그 `pytest.mark.slow`                                                                                                                                                                                                                 |
 | **환경 설정**              | `pytest` 실행 시 `PYTHONPATH=.`를 사용하여 프로젝트 루트를 Python 경로에 추가해야 합니다. (예: `PYTHONPATH=. pytest`)                                                                                                                                          |
 | **의존성 주입 오버라이딩** | FastAPI 애플리케이션의 의존성 주입을 테스트 환경에서 재정의할 때, `app.dependency_overrides`를 사용합니다. 특히 `get_db`와 같은 데이터베이스 세션 의존성은 테스트용 세션으로 오버라이딩해야 합니다. (예: `app.dependency_overrides[get_db] = override_get_db`) |
 
@@ -603,7 +602,7 @@ import pytest
 from app.infrastructure.persistence.sqlalchemy_coupon_repository_impl import SqlAlchemyCouponRepositoryImpl
 from app.domain.coupon.model import Coupon
 
-@pytest.mark.integration
+pytest.mark.integration
 def test_coupon_repository_with_db(db_session):
     repo = SqlAlchemyCouponRepositoryImpl(db=db_session)
     coupon = Coupon(id=1, amount=10000)
@@ -720,7 +719,7 @@ class TestPatternRequest(BaseModel):
 class CouponIssuedResponseDto(BaseModel):
     ...
 
-    @staticmethod
+    staticmethod
     def from_entity(coupon: Coupon) -> "CouponIssuedResponseDto":
         return CouponIssuedResponseDto.model_validate(coupon)
 ```
@@ -729,7 +728,7 @@ class CouponIssuedResponseDto(BaseModel):
 - DTO는 절대 도메인 객체로 사용하지 말 것
 - 도메인 객체는 validation이 없어도 비즈니스 불변조건을 지켜야 함
 - API 계층에서 도메인 객체를 직접 반환하지 말 것 (Pydantic + ORM 모델 혼용 금지)
-- DTO에 @validator 로직을 추가해도 비즈니스 규칙이 아닌 입력 검증 수준만 처리)
+- DTO에 validator 애노테이션 로직을 추가해도 비즈니스 규칙이 아닌 입력 검증 수준만 처리)
 
 ### 환경 설정 (Environment Configuration)
 
@@ -801,7 +800,7 @@ settings = get_settings()
 from .config import Settings
 
 class DevSettings(Settings):
-    DATABASE_URL: str = "postgresql://dev_user:dev_password@dev_db:5432/dev_blog_db"
+    DATABASE_URL: str = "postgresql://..."
     # 개발 환경에 특화된 다른 설정들
 ```
 

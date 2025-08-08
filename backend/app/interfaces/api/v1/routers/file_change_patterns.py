@@ -1,35 +1,35 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List, Dict, Any, Optional
 from app.application.use_cases.file_change_pattern.create_file_change_pattern import CreateFileChangePatternUseCase
 from app.application.use_cases.file_change_pattern.get_file_change_patterns import GetFileChangePatternsUseCase
 from app.application.use_cases.file_change_pattern.update_file_change_pattern import UpdateFileChangePatternUseCase
 from app.application.use_cases.file_change_pattern.delete_file_change_pattern import DeleteFileChangePatternUseCase
-from app.application.use_cases.file_change_pattern.confirm_file_change_pattern import ConfirmFileChangePatternUseCase # New import
-from app.application.use_cases.file_change_pattern.apply_saved_pattern import ApplySavedPatternUseCase # New import
+from app.application.use_cases.file_change_pattern.confirm_file_change_pattern import ConfirmFileChangePatternUseCase
+from app.application.use_cases.file_change_pattern.apply_saved_pattern import ApplySavedPatternUseCase
 from app.interfaces.api.dependencies import (
     get_create_file_change_pattern_use_case,
     get_get_file_change_patterns_use_case,
     get_update_file_change_pattern_use_case,
     get_delete_file_change_pattern_use_case,
-    get_confirm_file_change_pattern_use_case, # New dependency
-    get_apply_saved_pattern_use_case # New dependency
+    get_confirm_file_change_pattern_use_case,
+    get_apply_saved_pattern_use_case
 )
 from app.interfaces.api.v1.dtos.file_change_pattern_dtos import (
     FileChangePatternCreate,
     FileChangePatternUpdate,
     FileChangePatternResponse,
     FileChangePatternListResponse,
-    ConfirmFileChangePatternRequest, # New DTO
-    TestPatternResultResponse, # New DTO
-    ApplySavedPatternRequest # New DTO
+    ConfirmFileChangePatternRequest,
+    TestPatternResultResponse,
+    ApplySavedPatternRequest
 )
+from app.application.exceptions import UseCaseException, PatternNotFoundException
 
 router = APIRouter()
 
 @router.post(
-    "/test", # Changed path
-    response_model=TestPatternResultResponse, # Changed response model
-    status_code=status.HTTP_200_OK # Changed status code
+    "/test",
+    response_model=TestPatternResultResponse,
+    status_code=status.HTTP_200_OK
 )
 def test_and_prepare_pattern(
     request: FileChangePatternCreate,
@@ -43,11 +43,11 @@ def test_and_prepare_pattern(
             file_ids=request.file_ids
         )
         return TestPatternResultResponse(results=results)
-    except Exception as e:
+    except UseCaseException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.post(
-    "/confirm", # New endpoint
+    "/confirm",
     response_model=FileChangePatternResponse,
     status_code=status.HTTP_201_CREATED
 )
@@ -62,7 +62,7 @@ def confirm_pattern(
             replacement_format=request.replacement_format
         )
         return FileChangePatternResponse.model_validate(pattern)
-    except Exception as e:
+    except UseCaseException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 from fastapi import Query
@@ -77,10 +77,7 @@ def get_all_patterns(
     _start: int = Query(0, alias="_start"),
     _end: int = Query(10, alias="_end"),
 ):
-    skip = _start
-    limit = _end - _start
-    patterns = use_case.repository.find_all(skip=skip, limit=limit)
-    total_count = use_case.repository.count_all()
+    patterns, total_count = use_case.execute(skip=_start, limit=_end - _start)
 
     response_data = [FileChangePatternResponse.model_validate(p).model_dump() for p in patterns]
     
@@ -99,10 +96,11 @@ def get_pattern_by_id(
     pattern_id: int,
     use_case: GetFileChangePatternsUseCase = Depends(get_get_file_change_patterns_use_case)
 ):
-    patterns = use_case.execute(pattern_id=pattern_id)
-    if not patterns:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pattern not found")
-    return FileChangePatternResponse.model_validate(patterns[0])
+    try:
+        patterns = use_case.execute(pattern_id=pattern_id)
+        return FileChangePatternResponse.model_validate(patterns[0])
+    except PatternNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 @router.put(
     "/{pattern_id}",
@@ -113,15 +111,16 @@ def update_pattern(
     request: FileChangePatternUpdate,
     use_case: UpdateFileChangePatternUseCase = Depends(get_update_file_change_pattern_use_case)
 ):
-    updated_pattern = use_case.execute(
-        pattern_id=pattern_id,
-        name=request.name,
-        regex_pattern=request.regex_pattern,
-        replacement_format=request.replacement_format
-    )
-    if not updated_pattern:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pattern not found")
-    return FileChangePatternResponse.model_validate(updated_pattern)
+    try:
+        updated_pattern = use_case.execute(
+            pattern_id=pattern_id,
+            name=request.name,
+            regex_pattern=request.regex_pattern,
+            replacement_format=request.replacement_format
+        )
+        return FileChangePatternResponse.model_validate(updated_pattern)
+    except PatternNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 @router.post(
     "/apply-saved-pattern",
@@ -134,7 +133,9 @@ def apply_saved_pattern(
     try:
         use_case.execute(pattern_ids=request.pattern_ids, file_ids=request.file_ids)
         return {"message": "Patterns applied successfully"}
-    except Exception as e:
+    except PatternNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except UseCaseException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 

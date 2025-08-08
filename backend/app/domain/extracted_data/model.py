@@ -1,7 +1,11 @@
 from sqlmodel import Field, Relationship, JSON, Column
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 from datetime import datetime
 from app.domain.base_model import TimestampedBase
+
+if TYPE_CHECKING:
+    from app.domain.file.model import File
+    from app.domain.file_change_pattern.model import FileChangePattern
 
 
 class ExtractedData(TimestampedBase, table=True):

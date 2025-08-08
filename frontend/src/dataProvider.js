@@ -234,6 +234,40 @@ const customDataProvider = {
             return response.json();
         });
     },
+    applyRenameAndCopy: (params) => {
+        return fetch(`${apiUrl}/files/apply-rename-and-copy`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(params),
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'An error occurred during rename and copy.');
+                });
+            }
+            return response.json();
+        });
+    },
+    renameAndCopyByPattern: (params) => {
+        return fetch(`${apiUrl}/files/rename-and-copy-by-pattern`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(params),
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'An error occurred during rename and copy by pattern.');
+                });
+            }
+            return response.json();
+        });
+    },
 };
 
 export default customDataProvider;

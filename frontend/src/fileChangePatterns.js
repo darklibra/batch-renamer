@@ -64,7 +64,7 @@ const FileChangePatternBulkActionButtons = () => (
 
 export const FileChangePatternList = () => (
   <List pagination={<Pagination />}>
-    <Datagrid rowClick="toggleSelection" bulkActionButtons={<FileChangePatternBulkActionButtons />} >
+    <Datagrid rowClick="show" bulkActionButtons={<FileChangePatternBulkActionButtons />} >
       <TextField source="id" />
       <TextField source="name" />
       <TextField source="regex_pattern" />

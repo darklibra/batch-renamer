@@ -58,6 +58,9 @@ from app.application.use_cases.extracted_data.extract_data_from_file import (
 from app.application.use_cases.extracted_data.reapply_patterns_to_all_files import (
     ReapplyPatternsToAllFilesUseCase,
 )
+from app.application.use_cases.file.get_files import GetFilesUseCase
+from app.application.use_cases.file.apply_rename_and_copy import ApplyRenameAndCopyUseCase # New import
+from app.infrastructure.services.file_operation_service import FileOperationService
 
 
 def get_file_repository(session: Session = Depends(get_session)) -> FileRepository:
@@ -268,3 +271,81 @@ def get_delete_exclusion_pattern_use_case(
     repository: ExclusionPatternRepository = Depends(get_exclusion_pattern_repository),
 ) -> DeleteExclusionPatternUseCase:
     return DeleteExclusionPatternUseCase(repository=repository)
+
+
+def get_get_files_use_case(
+    file_repository: FileRepository = Depends(get_file_repository),
+) -> GetFilesUseCase:
+    return GetFilesUseCase(file_repository=file_repository)
+
+
+def get_file_operation_service() -> FileOperationService:
+    return FileOperationService()
+
+
+from app.application.use_cases.file.rename_and_copy_by_pattern import RenameAndCopyByPatternUseCase
+
+from app.domain.file_change_request.repository import FileChangeRequestRepository
+from app.infrastructure.persistence.file_change_request_repository_impl import FileChangeRequestRepositoryImpl
+from app.application.use_cases.file_change_request.create_file_change_request import CreateFileChangeRequestUseCase
+
+from app.application.use_cases.file_change_request.get_file_change_requests import GetFileChangeRequestsUseCase
+from app.application.use_cases.file_change_request.get_file_change_request_detail import GetFileChangeRequestDetailUseCase
+
+def get_file_change_request_repository(
+    session: Session = Depends(get_session)
+) -> FileChangeRequestRepository:
+    return FileChangeRequestRepositoryImpl(session)
+
+def get_create_file_change_request_use_case(
+    file_repository: FileRepository = Depends(get_file_repository),
+    file_change_pattern_repository: FileChangePatternRepository = Depends(
+        get_file_change_pattern_repository
+    ),
+    file_change_request_repository: FileChangeRequestRepository = Depends(
+        get_file_change_request_repository
+    ),
+    file_operation_service: FileOperationService = Depends(FileOperationService),
+) -> CreateFileChangeRequestUseCase:
+    return CreateFileChangeRequestUseCase(
+        file_repository=file_repository,
+        file_change_pattern_repository=file_change_pattern_repository,
+        file_change_request_repository=file_change_request_repository,
+        file_operation_service=file_operation_service,
+    )
+
+def get_get_file_change_requests_use_case(
+    repository: FileChangeRequestRepository = Depends(get_file_change_request_repository),
+) -> GetFileChangeRequestsUseCase:
+    return GetFileChangeRequestsUseCase(repository=repository)
+
+def get_get_file_change_request_detail_use_case(
+    repository: FileChangeRequestRepository = Depends(get_file_change_request_repository),
+) -> GetFileChangeRequestDetailUseCase:
+    return GetFileChangeRequestDetailUseCase(repository=repository)
+
+def get_apply_rename_and_copy_use_case(
+    file_repository: FileRepository = Depends(get_file_repository),
+    file_change_pattern_repository: FileChangePatternRepository = Depends(
+        get_file_change_pattern_repository
+    ),
+    file_operation_service: FileOperationService = Depends(FileOperationService),
+) -> ApplyRenameAndCopyUseCase:
+    return ApplyRenameAndCopyUseCase(
+        file_repository=file_repository,
+        file_change_pattern_repository=file_change_pattern_repository,
+        file_operation_service=file_operation_service,
+    )
+
+def get_rename_and_copy_by_pattern_use_case(
+    file_repository: FileRepository = Depends(get_file_repository),
+    file_change_pattern_repository: FileChangePatternRepository = Depends(
+        get_file_change_pattern_repository
+    ),
+    file_operation_service: FileOperationService = Depends(FileOperationService),
+) -> RenameAndCopyByPatternUseCase:
+    return RenameAndCopyByPatternUseCase(
+        file_repository=file_repository,
+        file_change_pattern_repository=file_change_pattern_repository,
+        file_operation_service=file_operation_service,
+    )

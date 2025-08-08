@@ -5,6 +5,7 @@ from app.application.use_cases.file_change_pattern.update_file_change_pattern im
 from app.domain.file_change_pattern.model import FileChangePattern
 from app.domain.file_change_pattern.repository import FileChangePatternRepository
 from app.application.use_cases.extracted_data.reapply_patterns_to_all_files import ReapplyPatternsToAllFilesUseCase
+from app.application.exceptions import PatternNotFoundException
 
 @pytest.fixture
 def mock_file_change_pattern_repository(mocker) -> MagicMock:
@@ -52,7 +53,7 @@ def test_update_pattern_success(update_file_change_pattern_use_case,
         replacement_format=updated_format
     )
 
-    assert result is not None
+    assert result == sample_pattern
     assert result.name == updated_name
     assert result.regex_pattern == updated_regex
     assert result.replacement_format == updated_format
@@ -64,12 +65,13 @@ def test_update_pattern_success(update_file_change_pattern_use_case,
 def test_update_pattern_not_found(update_file_change_pattern_use_case,
                                  mock_file_change_pattern_repository,
                                  mock_reapply_use_case):
-    """패턴이 존재하지 않을 때 None이 반환되는지 확인"""
+    """패턴이 존재하지 않을 때 PatternNotFoundException이 발생하는지 확인"""
     mock_file_change_pattern_repository.find_by_id.return_value = None
 
-    result = update_file_change_pattern_use_case.execute(pattern_id=999, name="New Name")
+    with pytest.raises(PatternNotFoundException) as excinfo:
+        update_file_change_pattern_use_case.execute(pattern_id=999, name="New Name")
 
-    assert result is None
+    assert "패턴을 찾을 수 없습니다: 999" in str(excinfo.value)
     mock_file_change_pattern_repository.find_by_id.assert_called_once_with(999)
     mock_file_change_pattern_repository.save.assert_not_called()
     mock_reapply_use_case.execute.assert_not_called()
@@ -89,7 +91,7 @@ def test_update_pattern_partial_update(update_file_change_pattern_use_case,
         name=updated_name
     )
 
-    assert result is not None
+    assert result == sample_pattern
     assert result.name == updated_name
     assert result.regex_pattern == sample_pattern.regex_pattern # Should remain unchanged
     assert result.replacement_format == sample_pattern.replacement_format # Should remain unchanged

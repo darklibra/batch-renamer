@@ -3,19 +3,31 @@ from typing import List, Optional
 from app.application.use_cases.index_files import IndexFilesUseCase
 from app.interfaces.api.dependencies import (
     get_index_files_use_case,
-    get_file_repository,
     get_apply_patterns_to_specific_file_use_case,
+    get_get_files_use_case,
+    get_apply_rename_and_copy_use_case,
+    get_rename_and_copy_by_pattern_use_case,
 )
 from app.interfaces.api.v1.dtos.file_dtos import (
     IndexRequest,
     FileResponse,
     IndexResponse,
+    ApplyRenameAndCopyRequestDto, # New import
+    ApplyRenameAndCopyResponseDto, # New import
 )
-from app.domain.file.repository import FileRepository
 from app.application.use_cases.extracted_data.apply_patterns_to_specific_file import (
     ApplyPatternsToSpecificFileUseCase,
 )
 from fastapi.responses import JSONResponse
+from app.application.exceptions import (
+    FileNotFoundException,
+    PatternNotFoundException,
+    FileProcessingException,
+    FileOperationException, # New import
+)
+from app.application.use_cases.file.get_files import GetFilesUseCase
+from app.application.use_cases.file.apply_rename_and_copy import ApplyRenameAndCopyUseCase
+from app.application.use_cases.file.rename_and_copy_by_pattern import RenameAndCopyByPatternUseCase
 
 router = APIRouter()
 
@@ -36,7 +48,7 @@ def index_files(
 
 @router.get("/", response_model=List[FileResponse])
 def get_all_files(
-    file_repository: FileRepository = Depends(get_file_repository),
+    use_case: GetFilesUseCase = Depends(get_get_files_use_case),
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
     _sort_field: Optional[str] = Query(None, alias="_sort"),
@@ -44,29 +56,20 @@ def get_all_files(
     ids: Optional[List[int]] = Query(None),
     filename: Optional[str] = Query(None), # filename 필터 추가
 ):
-    if ids:
-        file_ids = ids
-        files = file_repository.find_by_ids(file_ids)
-        total_count = len(files) # For getMany, total_count is the number of requested ids
-        response_data = [FileResponse.model_validate(f).model_dump() for f in files]
-        content_range = f"files 0-{len(files) - 1}/{total_count}"
-    else:
-        skip = (page - 1) * per_page
-        limit = per_page
-        files = file_repository.find_all(
-            skip=skip,
-            limit=limit,
-            sort_field=_sort_field,
-            sort_order=_sort_order,
-            filename=filename # filename 필터 전달
-        )
-        total_count = file_repository.count_all(filename=filename) # filename 필터 전달
+    files, total_count = use_case.execute(
+        page=page,
+        per_page=per_page,
+        sort_field=_sort_field,
+        sort_order=_sort_order,
+        ids=ids,
+        filename=filename,
+    )
 
-        content_range_start = skip
-        content_range_end = skip + len(files) - 1
-        content_range = f"files {content_range_start}-{content_range_end}/{total_count}"
+    content_range_start = (page - 1) * per_page
+    content_range_end = content_range_start + len(files) - 1
+    content_range = f"files {content_range_start}-{content_range_end}/{total_count}"
 
-        response_data = [FileResponse.model_validate(f).model_dump() for f in files]
+    response_data = [FileResponse.model_validate(f).model_dump() for f in files]
 
     return JSONResponse(
         content=response_data,
@@ -85,26 +88,39 @@ def apply_patterns_to_specific_file(
         get_apply_patterns_to_specific_file_use_case
     ),
 ):
-    extracted_data = use_case.execute(file_id)
-    if extracted_data is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found or no patterns applied.",
-        )
+    try:
+        updated_file = use_case.execute(file_id)
+        return FileResponse.model_validate(updated_file)
+    except FileNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except PatternNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except FileProcessingException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    updated_file = use_case.file_repository.find_by_id(file_id)
-    if not updated_file:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Updated file not found."
-        )
 
-    return FileResponse(
-        id=updated_file.id,
-        filename=updated_file.filename,
-        extension=updated_file.extension,
-        directory=updated_file.directory,
-        full_path=updated_file.full_path,
-        size=updated_file.size,
-        extraction_failed=updated_file.extraction_failed,
-        extraction_failure_reason=updated_file.extraction_failure_reason,
-    )
+@router.post(
+    "/apply-rename-and-copy",
+    response_model=ApplyRenameAndCopyResponseDto,
+    status_code=status.HTTP_200_OK,
+)
+def apply_rename_and_copy(
+    request: ApplyRenameAndCopyRequestDto,
+    use_case: ApplyRenameAndCopyUseCase = Depends(get_apply_rename_and_copy_use_case),
+):
+    try:
+        success_count, failed_count, details = use_case.execute(
+            file_change_pattern_id=request.file_change_pattern_id,
+            rename_pattern_string=request.rename_pattern_string,
+            destination_path=request.destination_path,
+        )
+        return ApplyRenameAndCopyResponseDto(
+            success_count=success_count, failed_count=failed_count, details=details
+        )
+    except PatternNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except FileOperationException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+

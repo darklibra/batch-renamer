@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 from sqlalchemy.sql import func
 import unicodedata # Added import
 from app.domain.file.model import File
+from app.domain.extracted_data.model import ExtractedData
 from app.domain.file.repository import FileRepository
 
 class FileRepositoryImpl(FileRepository):
@@ -50,3 +51,12 @@ class FileRepositoryImpl(FileRepository):
 
     def find_by_id(self, file_id: int) -> Optional[File]:
         return self.session.get(File, file_id)
+
+    def find_by_pattern_id(self, pattern_id: int) -> List[File]:
+        statement = (
+            select(File)
+            .join(ExtractedData)
+            .where(ExtractedData.pattern_id == pattern_id)
+            .distinct()
+        )
+        return self.session.exec(statement).all()
