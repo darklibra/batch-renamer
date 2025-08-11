@@ -1,0 +1,12 @@
+[project]
+name = "clear-file-backend"
+version = "0.1.0"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+    "sqlalchemy"
+]
+
+[tool.uv]
+python = "3.10"
