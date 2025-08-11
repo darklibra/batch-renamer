@@ -51,12 +51,9 @@
 | --- | --- | --- |
 | **To Do** | **[공통]** Docker 설정 (docker-compose.yml) | |
 | **To Do** | **[Backend]** `pyproject.toml` 설정 및 `uv` 환경 구성 | |
-| **To Do** | **[Backend]** `.env` 파일을 이용한 환경 변수 설정 | |
 | **To Do** | **[Backend]** SQLite 데이터베이스 초기화 스크립트 (`scripts/init_db.py`) 작성 | |
-| **To Do** | **[Backend]** 파일 스캔 서비스 로직 구현 (TDD) | |
 | **To Do** | **[Backend]** 파일명 파싱 유틸리티 구현 (TDD) | |
 | **To Do** | **[Backend]** 파일 복사 서비스 로직 구현 (TDD) | |
-| **To Do** | **[Backend]** `/api/files` GET 엔드포인트 구현 | |
 | **To Do** | **[Backend]** `/api/files/copy` POST 엔드포인트 구현 | |
 | **To Do** | **[Frontend]** React 프로젝트 초기 설정 (`create-react-app` 또는 `vite`) | |
 | **To Do** | **[Frontend]** `package.json` 의존성 설정 | |
@@ -67,6 +64,9 @@
 | **In Progress** | | |
 | **Done** | **[공통]** 모노레포 구조 설정 | Gemini |
 | **Done** | **[Backend]** FastAPI 프로젝트 초기 설정 | Gemini |
+| **Done** | **[Backend]** `.env` 파일을 이용한 환경 변수 설정 | Gemini |
+| **Done** | **[Backend]** 파일 스캔 서비스 로직 구현 (TDD) | Gemini |
+| **Done** | **[Backend]** `/api/files` GET 엔드포인트 구현 | Gemini |
 | **Done** | | |
 
 ## 4. 아키텍처 분석 (/sg:analyze --architect)
