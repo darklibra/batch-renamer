@@ -55,12 +55,13 @@
 | **To Do** | **[Backend]** 파일명 파싱 유틸리티 구현 (TDD) | |
 | **To Do** | **[Backend]** 파일 복사 서비스 로직 구현 (TDD) | |
 | **To Do** | **[Backend]** `/api/files/copy` POST 엔드포인트 구현 | |
-| **To Do** | **[Frontend]** React 프로젝트 초기 설정 (`create-react-app` 또는 `vite`) | |
-| **To Do** | **[Frontend]** `package.json` 의존성 설정 | |
-| **To Do** | **[Frontend]** `.env` 파일을 이용한 환경 변수 설정 | |
-| **To Do** | **[Frontend]** 파일 목록을 표시할 `FileList` 컴포넌트 생성 | |
-| **To Do** | **[Frontend]** 백엔드 API와 통신할 `useFiles` 커스텀 훅 생성 | |
-| **To Do** | **[Frontend]** 파일 복사 요청을 보낼 UI 구현 | |
+| **Done** | **[Frontend]** React 프로젝트 초기 설정 (`vite`) | Gemini |
+| **Done** | **[Frontend]** `package.json` 의존성 설정 | Gemini |
+| **Done** | **[Frontend]** `.env` 파일을 이용한 환경 변수 설정 | Gemini |
+| **Done** | **[Frontend]** 파일 목록을 표시할 `FileList` 컴포넌트 생성 | Gemini |
+| **Done** | **[Frontend]** 백엔드 API와 통신할 `useFiles` 커스텀 훅 생성 | Gemini |
+| **Done** | **[Frontend]** 파일 복사 요청을 보낼 UI 구현 | Gemini |
+| **In Progress** | **[Frontend]** `react-admin` 적용 (데이터 프로바이더 연결 필요) | Gemini |
 | **In Progress** | | |
 | **Done** | **[공통]** 모노레포 구조 설정 | Gemini |
 | **Done** | **[Backend]** FastAPI 프로젝트 초기 설정 | Gemini |
