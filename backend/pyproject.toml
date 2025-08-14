@@ -3,10 +3,12 @@ name = "clear-file-backend"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi",
-    "uvicorn[standard]",
-    "pydantic",
-    "sqlalchemy"
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.0.0",
+    "sqlalchemy>=2.0.0",
+    "python-multipart>=0.0.6",
+    "aiofiles>=23.0.0"
 ]
 
 [project.optional-dependencies]
