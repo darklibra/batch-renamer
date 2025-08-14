@@ -11,6 +11,7 @@ import logging
 
 from app.repositories.file_repository import FileRepository, ExclusionPatternRepository, IndexingJobRepository
 from app.models.file_models import IndexedFile, ExclusionPattern, IndexingJob
+from app.core.security_validator import get_path_security_manager
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -33,29 +34,54 @@ class FileIndexingService:
         self.batch_size = batch_size
         self.max_workers = max_workers
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
+        
+        # Initialize security manager
+        self.security_manager = get_path_security_manager()
+        
+        logger.info(f"FileIndexingService initialized with enhanced security validation")
     
     async def start_indexing_job(self, directory_path: str) -> str:
         """
-        Start a new indexing job and return job ID
+        Start a new indexing job with enhanced security validation
         """
-        if not os.path.isdir(directory_path):
-            raise ValueError(f"Directory not found: {directory_path}")
+        # Enhanced security validation
+        security_result = self.security_manager.validate_scan_path(directory_path)
+        if not security_result.is_secure:
+            error_msg = f"Security validation failed: {security_result.message}"
+            logger.error(f"Indexing job rejected: {error_msg}")
+            raise ValueError(error_msg)
+        
+        if security_result.risk_level in ['high', 'critical']:
+            logger.warning(
+                f"Indexing high-risk path: {directory_path} "
+                f"(risk: {security_result.risk_level})"
+            )
         
         # Generate unique job ID
         job_id = str(uuid.uuid4())
         
-        # Create job record
+        # Create job record with security information
         job_data = {
             'id': job_id,
             'directory_path': directory_path,
             'status': 'started',
-            'stage': 'initializing'
+            'stage': 'initializing',
+            'security_validation': {
+                'validated': True,
+                'risk_level': security_result.risk_level,
+                'security_details': security_result.details
+            }
         }
         
         self.job_repo.create_job(job_data)
         
         # Start background indexing
         asyncio.create_task(self._perform_indexing(job_id, directory_path))
+        
+        logger.info(
+            f"Indexing job {job_id} started for {directory_path} "
+            f"(security risk: {security_result.risk_level})"
+        )
         
         return job_id
     

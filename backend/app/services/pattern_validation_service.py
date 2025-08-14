@@ -3,8 +3,12 @@ import json
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
+import logging
 
 from app.models.file_models import ExtractionPattern
+from app.core.security_validator import get_pattern_validator, ValidationResult as SecurityValidationResult
+
+logger = logging.getLogger(__name__)
 
 
 class ValidationSeverity(Enum):
@@ -963,5 +967,88 @@ class PatternTester:
         
         if not recommendations:
             recommendations.append("Pattern looks good! Consider testing with more diverse filenames")
+        
+        return recommendations
+    
+    def validate_pattern_security(self, regex_pattern: str, pattern_id: Optional[int] = None) -> Dict[str, Any]:
+        """Enhanced security validation for regex patterns"""
+        try:
+            security_validator = get_pattern_validator()
+            result = security_validator.validate_pattern_security(regex_pattern, pattern_id)
+            
+            return {
+                'is_valid': result.is_valid,
+                'message': result.message,
+                'risk_score': result.risk_score,
+                'details': result.details,
+                'recommendations': self._generate_security_recommendations(result)
+            }
+            
+        except Exception as e:
+            logger.error(f"Security validation failed: {str(e)}")
+            return {
+                'is_valid': False,
+                'message': f'Security validation error: {str(e)}',
+                'risk_score': 1.0,
+                'details': {'error': str(e)},
+                'recommendations': ['Manual security review required']
+            }
+    
+    def _generate_security_recommendations(self, security_result: SecurityValidationResult) -> List[str]:
+        """Generate actionable security recommendations"""
+        recommendations = []
+        
+        if not security_result.is_valid:
+            if security_result.risk_score >= 0.9:
+                recommendations.extend([
+                    'Pattern has critical security issues - do not use in production',
+                    'Consider completely rewriting the pattern with simpler logic',
+                    'Test pattern thoroughly with large inputs before deployment'
+                ])
+            elif security_result.risk_score >= 0.7:
+                recommendations.extend([
+                    'Pattern has significant security concerns',
+                    'Reduce pattern complexity by avoiding nested quantifiers',
+                    'Consider using more specific character classes instead of .*'
+                ])
+            else:
+                recommendations.extend([
+                    'Pattern has minor security concerns',
+                    'Review pattern for unnecessary complexity',
+                    'Consider adding input length limits'
+                ])
+        
+        if security_result.details:
+            complexity = security_result.details.get('complexity_score', 0)
+            if complexity > 0.6:
+                recommendations.append('Simplify pattern to reduce computational complexity')
+            
+            if 'dangerous_constructs' in security_result.details:
+                recommendations.append('Remove or replace dangerous regex constructs')
+            
+            if 'failed_tests' in security_result.details:
+                recommendations.append('Pattern failed performance tests - optimize for speed')
+        
+        return recommendations
+    
+    def get_validation_recommendations(self, validation_report: PatternValidationReport) -> Dict[str, List[str]]:
+        """Generate comprehensive recommendations from validation report"""
+        recommendations = {
+            'critical': [],
+            'important': [],
+            'suggested': [],
+            'optimization': []
+        }
+        
+        for result in validation_report.results:
+            if result.suggestion:
+                if result.severity == ValidationSeverity.CRITICAL:
+                    recommendations['critical'].append(result.suggestion)
+                elif result.severity == ValidationSeverity.ERROR:
+                    recommendations['important'].append(result.suggestion)
+                elif result.severity == ValidationSeverity.WARNING:
+                    recommendations['suggested'].append(result.suggestion)
+                else:
+                    recommendations['optimization'].append(result.suggestion)
         
         return recommendations
