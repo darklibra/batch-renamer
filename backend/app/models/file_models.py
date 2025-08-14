@@ -139,6 +139,117 @@ class ExtractionPattern(Base):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
+class PatternApplication(Base):
+    """
+    Model for tracking pattern applications and extraction results
+    """
+    __tablename__ = "pattern_applications"
+    
+    id = Column(Integer, primary_key=True)
+    file_id = Column(Integer, ForeignKey('files.id'), nullable=False)
+    pattern_id = Column(Integer, ForeignKey('patterns.id'), nullable=False)
+    extraction_score = Column(Integer, default=0)  # Number of fields successfully extracted
+    extracted_data = Column(JSON)  # The actual extracted metadata
+    applied_at = Column(DateTime, default=datetime.utcnow)
+    is_current = Column(Boolean, default=True)  # Current best match for this file
+    processing_time_ms = Column(Integer, default=0)  # Performance tracking
+    
+    # Relationships
+    file = relationship("IndexedFile", backref="pattern_applications")
+    pattern = relationship("ExtractionPattern", backref="applications")
+    
+    # Indexes for performance
+    __table_args__ = (
+        Index('idx_pattern_apps_file', 'file_id'),
+        Index('idx_pattern_apps_pattern', 'pattern_id'),
+        Index('idx_pattern_apps_current', 'file_id', 'is_current'),
+    )
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'file_id': self.file_id,
+            'pattern_id': self.pattern_id,
+            'extraction_score': self.extraction_score,
+            'extracted_data': self.extracted_data,
+            'applied_at': self.applied_at.isoformat() if self.applied_at else None,
+            'is_current': self.is_current,
+            'processing_time_ms': self.processing_time_ms
+        }
+
+class PatternFailure(Base):
+    """
+    Model for tracking pattern application failures
+    """
+    __tablename__ = "pattern_failures"
+    
+    id = Column(Integer, primary_key=True)
+    file_id = Column(Integer, ForeignKey('files.id'), nullable=False)
+    attempted_patterns = Column(JSON)  # List of pattern IDs that were attempted
+    failure_reason = Column(String(500))
+    error_details = Column(JSON)  # Detailed error information
+    requires_user_input = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at = Column(DateTime)
+    resolved_by_pattern_id = Column(Integer, ForeignKey('patterns.id'))
+    
+    # Relationships
+    file = relationship("IndexedFile", backref="pattern_failures")
+    resolved_by_pattern = relationship("ExtractionPattern", backref="resolved_failures")
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'file_id': self.file_id,
+            'attempted_patterns': self.attempted_patterns,
+            'failure_reason': self.failure_reason,
+            'error_details': self.error_details,
+            'requires_user_input': self.requires_user_input,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,
+            'resolved_by_pattern_id': self.resolved_by_pattern_id
+        }
+
+class PatternExtractionJob(Base):
+    """
+    Model for tracking pattern extraction background jobs
+    """
+    __tablename__ = "pattern_extraction_jobs"
+    
+    id = Column(String(36), primary_key=True)  # UUID
+    job_type = Column(String(50), nullable=False)  # 'batch_extract', 'reapply_pattern', 'test_pattern'
+    file_ids = Column(JSON)  # List of file IDs to process
+    pattern_ids = Column(JSON)  # List of pattern IDs to apply
+    status = Column(String(20), default='started')  # started, processing, completed, error
+    processed_count = Column(Integer, default=0)
+    total_count = Column(Integer, default=0)
+    successful_extractions = Column(Integer, default=0)
+    failed_extractions = Column(Integer, default=0)
+    error_message = Column(String(1000))
+    result_data = Column(JSON)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime)
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'job_type': self.job_type,
+            'file_ids': self.file_ids,
+            'pattern_ids': self.pattern_ids,
+            'status': self.status,
+            'processed_count': self.processed_count,
+            'total_count': self.total_count,
+            'successful_extractions': self.successful_extractions,
+            'failed_extractions': self.failed_extractions,
+            'error_message': self.error_message,
+            'result_data': self.result_data,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None
+        }
+
 class IndexingJob(Base):
     """
     Model for tracking file indexing jobs

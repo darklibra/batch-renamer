@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import files
+from app.api.routes import files, patterns
 from app.core.database import create_tables
 
 # Create FastAPI app
@@ -26,6 +26,7 @@ def startup_event():
 
 # Include routers
 app.include_router(files.router, prefix="/api/v1", tags=["files"])
+app.include_router(patterns.router, prefix="/api/v1", tags=["patterns"])
 
 @app.get("/")
 def read_root():
