@@ -1,6 +1,6 @@
 import simpleRestProvider from 'ra-data-simple-rest';
 
-const apiUrl = process.env.REACT_APP_BACKEND_URL + '/api/v1';
+const apiUrl = (process.env.REACT_APP_BACKEND_URL || process.env.VITE_REACT_APP_API_BASE_URL || 'http://localhost:8000') + '/api/v1';
 
 const customDataProvider = {
     getList: (resource, params) => {
@@ -331,6 +331,267 @@ const customDataProvider = {
             }
             return response.json();
         });
+    },
+
+    // ===========================================
+    // NEW PATTERN MANAGEMENT API METHODS
+    // ===========================================
+
+    // Pattern CRUD Operations
+    getPatterns: (params = {}) => {
+        const { page = 1, per_page = 20, is_active, sort_by = 'priority', sort_order = 'desc' } = params;
+        const query = new URLSearchParams({
+            page: page.toString(),
+            per_page: per_page.toString(),
+            sort_by,
+            sort_order,
+            ...(is_active !== undefined && { is_active: is_active.toString() })
+        });
+        
+        return fetch(`${apiUrl}/patterns?${query}`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.detail || 'Failed to fetch patterns');
+                    });
+                }
+                return response.json();
+            });
+    },
+
+    createPattern: (patternData) => {
+        return fetch(`${apiUrl}/patterns`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patternData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to create pattern');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    updatePattern: (patternId, patternData) => {
+        return fetch(`${apiUrl}/patterns/${patternId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patternData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to update pattern');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    deletePattern: (patternId, hardDelete = false) => {
+        const query = hardDelete ? '?hard_delete=true' : '';
+        return fetch(`${apiUrl}/patterns/${patternId}${query}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to delete pattern');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Pattern Testing
+    testPatternAdvanced: (patternData, fileIds) => {
+        return fetch(`${apiUrl}/patterns/test`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: patternData.name,
+                regex_pattern: patternData.regex_pattern,
+                field_mapping: patternData.field_mapping,
+                file_ids: fileIds
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Pattern test failed');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Metadata Extraction
+    extractFileMetadata: (fileId, forceReapply = false) => {
+        const query = forceReapply ? '?force_reapply=true' : '';
+        return fetch(`${apiUrl}/files/${fileId}/extract-metadata${query}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Metadata extraction failed');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    startBatchExtraction: (fileIds, patternIds = null, forceReapply = false) => {
+        return fetch(`${apiUrl}/files/batch-extract-metadata`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                file_ids: fileIds,
+                pattern_ids: patternIds,
+                force_reapply: forceReapply
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to start batch extraction');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Job Management
+    getJobStatus: (jobId) => {
+        return fetch(`${apiUrl}/patterns/jobs/${jobId}`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.detail || 'Failed to get job status');
+                    });
+                }
+                return response.json();
+            });
+    },
+
+    getJobs: (params = {}) => {
+        const { page = 1, per_page = 20, status, job_type } = params;
+        const query = new URLSearchParams({
+            page: page.toString(),
+            per_page: per_page.toString(),
+            ...(status && { status }),
+            ...(job_type && { job_type })
+        });
+
+        return fetch(`${apiUrl}/patterns/jobs?${query}`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.detail || 'Failed to fetch jobs');
+                    });
+                }
+                return response.json();
+            });
+    },
+
+    // Failure Management
+    getExtractionFailures: (params = {}) => {
+        const { limit = 50, requires_user_input } = params;
+        const query = new URLSearchParams({
+            limit: limit.toString(),
+            ...(requires_user_input !== undefined && { requires_user_input: requires_user_input.toString() })
+        });
+
+        return fetch(`${apiUrl}/files/extraction-failures?${query}`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.detail || 'Failed to get extraction failures');
+                    });
+                }
+                return response.json();
+            });
+    },
+
+    resolveFailure: (failureId, patternId) => {
+        return fetch(`${apiUrl}/patterns/failures/${failureId}/resolve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pattern_id: patternId })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to resolve failure');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Statistics and Analytics
+    getExtractionStats: () => {
+        return fetch(`${apiUrl}/files/extraction-stats`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.detail || 'Failed to get extraction stats');
+                    });
+                }
+                return response.json();
+            });
+    },
+
+    getPatternStats: (patternId) => {
+        return fetch(`${apiUrl}/patterns/stats/pattern/${patternId}`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.detail || 'Failed to get pattern stats');
+                    });
+                }
+                return response.json();
+            });
+    },
+
+    getSystemOverview: () => {
+        return fetch(`${apiUrl}/patterns/stats/overview`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.detail || 'Failed to get system overview');
+                    });
+                }
+                return response.json();
+            });
+    },
+
+    // Advanced Search
+    searchFiles: (params = {}) => {
+        const { query, search_in = 'all', pattern_id, has_extracted_data, page = 1, per_page = 20 } = params;
+        const searchParams = new URLSearchParams({
+            query: query || '',
+            search_in,
+            page: page.toString(),
+            per_page: per_page.toString(),
+            ...(pattern_id && { pattern_id: pattern_id.toString() }),
+            ...(has_extracted_data !== undefined && { has_extracted_data: has_extracted_data.toString() })
+        });
+
+        return fetch(`${apiUrl}/files/search?${searchParams}`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.detail || 'Search failed');
+                    });
+                }
+                return response.json();
+            });
     },
 };
 
