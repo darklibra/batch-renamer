@@ -178,8 +178,10 @@ async def create_pattern(
                 detail=f"Pattern with name '{pattern_data.name}' already exists",
             )
 
-        # Create pattern
-        pattern = pattern_repo.create_pattern(pattern_data.dict())
+        # Create pattern (exclude description field as it's not in the model)
+        pattern_dict = pattern_data.dict()
+        pattern_dict.pop('description', None)  # Remove description field if present
+        pattern = pattern_repo.create_pattern(pattern_dict)
         return PatternResponse(**pattern.to_dict())
 
     except re.error as e:
@@ -260,10 +262,10 @@ async def update_pattern(
                     detail=f"Pattern with name '{update_data.name}' already exists",
                 )
 
-        # Update pattern
-        updated_pattern = pattern_repo.update_pattern(
-            pattern_id, update_data.dict(exclude_unset=True)
-        )
+        # Update pattern (exclude description field as it's not in the model)
+        update_dict = update_data.dict(exclude_unset=True)
+        update_dict.pop('description', None)  # Remove description field if present
+        updated_pattern = pattern_repo.update_pattern(pattern_id, update_dict)
 
         if not updated_pattern:
             raise HTTPException(status_code=404, detail="Pattern not found")

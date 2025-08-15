@@ -261,9 +261,8 @@ const JobStatistics = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                // Try to get actual stats from the API
-                // For now, we'll calculate from jobs list
-                const jobsResult = await dataProvider.getJobs({ per_page: 1000 });
+                // Fetch available jobs respecting API limits (combined total will be ~150 jobs max)
+                const jobsResult = await dataProvider.getJobs({ per_page: 50 }); // Safe limit that works for both APIs
                 const jobs = jobsResult.jobs || [];
                 
                 const stats = {

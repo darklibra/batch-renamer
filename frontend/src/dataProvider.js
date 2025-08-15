@@ -501,25 +501,32 @@ const customDataProvider = {
         });
     },
 
-    // Job Management
+    // Job Management with intelligent job type detection
     getJobStatus: (jobId) => {
-        // Try pattern jobs first, then indexing jobs with correct endpoints
-        return fetch(`${apiUrl}/patterns/jobs/${jobId}`)
+        // Optimized job lookup - try indexing jobs first as they are more common
+        return fetch(`${apiUrl}/files/index/${jobId}/progress`)
             .then(response => {
                 if (response.ok) {
-                    return response.json();
+                    return response.json().then(data => ({
+                        ...data,
+                        job_type: data.job_type || 'indexing_directory_scan' // Ensure job_type is set
+                    }));
                 }
-                // If not found in pattern jobs, try indexing jobs with correct endpoint
-                return fetch(`${apiUrl}/files/index/${jobId}/progress`)
-                    .then(indexingResponse => {
-                        if (!indexingResponse.ok) {
-                            throw new Error('Job not found');
+                // If not found in indexing jobs, try pattern jobs
+                return fetch(`${apiUrl}/patterns/jobs/${jobId}`)
+                    .then(patternResponse => {
+                        if (!patternResponse.ok) {
+                            throw new Error('Job not found in either system');
                         }
-                        return indexingResponse.json();
+                        return patternResponse.json().then(data => ({
+                            ...data,
+                            job_type: data.job_type || 'pattern_extraction' // Ensure job_type is set
+                        }));
                     });
             })
             .catch(error => {
-                throw new Error(error.message || 'Failed to get job status');
+                // Only throw error if both endpoints fail
+                throw new Error('Job not found');
             });
     },
 
@@ -532,17 +539,21 @@ const customDataProvider = {
             ...(job_type && { job_type })
         });
 
+        // Respect API limits: patterns max per_page=100, indexing max limit=50
+        const maxPatternJobs = Math.min(per_page, 100);
+        const maxIndexingJobs = Math.min(per_page, 50);
+        
         // Fetch both pattern extraction jobs and file indexing jobs
-        const patternJobsPromise = fetch(`${apiUrl}/patterns/jobs/?${query}`)
+        const patternJobsPromise = fetch(`${apiUrl}/patterns/jobs/?page=${page}&per_page=${maxPatternJobs}${status ? `&status=${status}` : ''}${job_type ? `&job_type=${job_type}` : ''}`)
             .then(response => {
                 if (!response.ok) {
-                    return { jobs: [], total: 0 };
+                    return { jobs: [], total: 0, pagination: { total: 0 } };
                 }
                 return response.json();
             })
-            .catch(() => ({ jobs: [], total: 0 }));
+            .catch(() => ({ jobs: [], total: 0, pagination: { total: 0 } }));
 
-        const indexingJobsPromise = fetch(`${apiUrl}/files/index/jobs?limit=${per_page}`)
+        const indexingJobsPromise = fetch(`${apiUrl}/files/index/jobs?limit=${maxIndexingJobs}`)
             .then(response => {
                 if (!response.ok) {
                     return [];
