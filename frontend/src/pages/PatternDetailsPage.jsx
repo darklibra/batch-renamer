@@ -181,50 +181,46 @@ const PatternDetailsPage = () => {
               <Divider sx={{ mb: 3 }} />
 
               <List>
-                <ListItem>
-                  <ListItemText
-                    primary="Regex Pattern"
-                    secondary={
-                      <Box sx={{ mt: 1 }}>
-                        <TextField
-                          value={pattern.regex_pattern}
-                          multiline
-                          fullWidth
-                          variant="outlined"
-                          InputProps={{
-                            readOnly: true,
-                            style: { fontFamily: 'monospace' }
-                          }}
-                          size="small"
-                        />
-                      </Box>
-                    }
+                <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                    Regex Pattern
+                  </Typography>
+                  <TextField
+                    value={pattern.regex_pattern}
+                    multiline
+                    fullWidth
+                    variant="outlined"
+                    InputProps={{
+                      readOnly: true,
+                      style: { fontFamily: 'monospace' }
+                    }}
+                    size="small"
                   />
                 </ListItem>
 
-                <ListItem>
-                  <ListItemText
-                    primary="Created"
-                    secondary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                        <CalendarToday sx={{ mr: 1, fontSize: 16 }} />
-                        {formatDate(pattern.created_at)}
-                      </Box>
-                    }
-                  />
+                <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                    Created
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CalendarToday sx={{ mr: 1, fontSize: 16 }} />
+                    <Typography variant="body2">
+                      {formatDate(pattern.created_at)}
+                    </Typography>
+                  </Box>
                 </ListItem>
 
                 {pattern.updated_at && (
-                  <ListItem>
-                    <ListItemText
-                      primary="Last Updated"
-                      secondary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                          <CalendarToday sx={{ mr: 1, fontSize: 16 }} />
-                          {formatDate(pattern.updated_at)}
-                        </Box>
-                      }
-                    />
+                  <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                      Last Updated
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <CalendarToday sx={{ mr: 1, fontSize: 16 }} />
+                      <Typography variant="body2">
+                        {formatDate(pattern.updated_at)}
+                      </Typography>
+                    </Box>
                   </ListItem>
                 )}
               </List>

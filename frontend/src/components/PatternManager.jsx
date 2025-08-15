@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box, Card, CardContent, CardActions, Typography, Button, TextField,
     Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
@@ -423,6 +424,7 @@ const PatternFormDialog = ({ open, onClose, pattern, onSave }) => {
 // PATTERN MANAGER COMPONENT
 // ===========================================
 const PatternManager = () => {
+    const navigate = useNavigate();
     const [patterns, setPatterns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [formDialog, setFormDialog] = useState({ open: false, pattern: null });
@@ -488,9 +490,8 @@ const PatternManager = () => {
     };
 
     const handleTestPattern = (pattern) => {
-        // Navigate to pattern testing page with pattern data
-        // For now, show a notification
-        notify(`${pattern.name} 패턴 테스트를 시작합니다.`, { type: 'info' });
+        // Navigate to pattern details page with built-in testing functionality
+        navigate(`/patterns/${pattern.id}`);
     };
 
     const handleFormSave = () => {
