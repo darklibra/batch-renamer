@@ -18,11 +18,11 @@ import {
 import {
     CheckCircle, Error as ErrorIcon, Warning, Info,
     PlayArrow, Stop, Refresh, Visibility, Edit as EditIcon,
-    Delete, TestTube, Analytics, TrendingUp, BugReport,
+    Delete, Science, Analytics, TrendingUp, BugReport,
     ExpandMore, Settings, Speed, Security, CheckCircleOutline
 } from '@mui/icons-material';
 import dataProvider from './dataProvider';
-import FileSelectionPopup from './FileSelectionPopup';
+import FileSelectionPopup from './FileSelectionPopup.jsx';
 
 // ===========================================
 // PATTERN VALIDATION COMPONENT
@@ -207,7 +207,7 @@ const PatternTester = ({ pattern }) => {
                     variant="contained"
                     onClick={runTest}
                     disabled={!pattern || selectedFiles.length === 0 || loading}
-                    startIcon={loading ? <LinearProgress /> : <TestTube />}
+                    startIcon={loading ? <LinearProgress /> : <Science />}
                 >
                     Run Test
                 </Button>

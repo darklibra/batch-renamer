@@ -1,70 +1,31 @@
 import React from 'react'
 import { render } from '@testing-library/react'
-import { Admin, Resource, testDataProvider } from 'react-admin'
 import { MemoryRouter } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
+import { vi } from 'vitest'
 
 // Create a default theme for testing
 const theme = createTheme()
 
-// Create a custom render function that includes all necessary providers
+// Simple providers wrapper for basic components
 export function renderWithProviders(
   ui,
   {
     initialEntries = ['/'],
-    dataProvider = testDataProvider(),
-    queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false,
-        },
-      },
-    }),
     ...renderOptions
   } = {}
 ) {
   function Wrapper({ children }) {
     return (
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider theme={theme}>
-          <MemoryRouter initialEntries={initialEntries}>
-            {children}
-          </MemoryRouter>
-        </ThemeProvider>
-      </QueryClientProvider>
+      <ThemeProvider theme={theme}>
+        <MemoryRouter initialEntries={initialEntries}>
+          {children}
+        </MemoryRouter>
+      </ThemeProvider>
     )
   }
   
   return render(ui, { wrapper: Wrapper, ...renderOptions })
-}
-
-// Render component within React Admin context
-export function renderWithAdmin(
-  ui,
-  {
-    dataProvider = testDataProvider(),
-    initialEntries = ['/'],
-    resources = [],
-    ...renderOptions
-  } = {}
-) {
-  function AdminWrapper({ children }) {
-    return (
-      <MemoryRouter initialEntries={initialEntries}>
-        <ThemeProvider theme={theme}>
-          <Admin dataProvider={dataProvider} disableTelemetry>
-            {resources.map((resource, index) => (
-              <Resource key={index} {...resource} />
-            ))}
-            {children}
-          </Admin>
-        </ThemeProvider>
-      </MemoryRouter>
-    )
-  }
-
-  return render(ui, { wrapper: AdminWrapper, ...renderOptions })
 }
 
 // Mock data generators
@@ -133,14 +94,7 @@ export const mockSystemStats = (overrides = {}) => ({
   ...overrides
 })
 
-// Custom matchers helpers
-export const waitForLoadingToFinish = () => {
-  return new Promise(resolve => {
-    setTimeout(resolve, 0)
-  })
-}
-
-// Mock implementations
+// Mock implementations for testing
 export const mockDataProvider = {
   getList: vi.fn(() => Promise.resolve({ data: [], total: 0 })),
   getOne: vi.fn(() => Promise.resolve({ data: {} })),
@@ -157,7 +111,23 @@ export const mockDataProvider = {
     success: true,
     results: { 1: { matched: true, extracted_data: { name: 'Test' } } }
   })),
+  testPatternAdvanced: vi.fn(() => Promise.resolve({
+    success: true,
+    total_files_tested: 3,
+    successful_matches: 2,
+    results: { 1: { matched: true, extracted_data: { name: 'Test' } } }
+  })),
   startFileIndexing: vi.fn(() => Promise.resolve({ job_id: 'job-12345' })),
+  startBatchExtraction: vi.fn(() => Promise.resolve({ job_id: 'batch-job-123' })),
+  getJobStatus: vi.fn(() => Promise.resolve(mockJob())),
+  searchFiles: vi.fn(() => Promise.resolve({ files: [], total: 0 })),
+}
+
+// Helper functions
+export const waitForLoadingToFinish = () => {
+  return new Promise(resolve => {
+    setTimeout(resolve, 0)
+  })
 }
 
 // Re-export everything from React Testing Library

@@ -39,7 +39,7 @@ export const FileChangeRequestShow = () => (
             <DateField source="updated_at" showTime />
 
             <h3>Affected Files</h3>
-            <Datagrid data={record => record.targets} is  empty={record => !record.targets || record.targets.length === 0}>
+            <Datagrid data={record => record.targets} empty={record => !record.targets || record.targets.length === 0}>
                 <TextField source="id" />
                 <TextField source="original_file_id" label="Original File ID" />
                 <TextField source="new_filename" />

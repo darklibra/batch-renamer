@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button, TextField, Typography, Box, Paper, List, ListItem, ListItemText } from '@mui/material';
-import { useNotify } from 'react-admin';
+// Removed useNotify to avoid Router context issues
 import dataProvider from './dataProvider';
+import { notify } from './utils/notifications';
 import FileSelectionPopup from './FileSelectionPopup'; // Added import
 
 function PatternTester() {
@@ -10,11 +11,11 @@ function PatternTester() {
     const [popupSelectedFileIds, setPopupSelectedFileIds] = useState(new Set()); // New state for popup selection
     const [extractedData, setExtractedData] = useState([]);
     const [isPopupOpen, setIsPopupOpen] = useState(false); // Added state
-    const notify = useNotify();
+    // Using imported notification system
 
     const handleFileSelect = async (files) => {
-        setSelectedFiles(files);
-        setPopupSelectedFileIds(new Set(files.map(file => file.id))); // Update popup selection state
+        setSelectedFiles(files || []);
+        setPopupSelectedFileIds(new Set((files || []).map(file => file.id))); // Update popup selection state with safety check
         // For now, we'll clear extractedData when new files are selected
         setExtractedData([]);
         setIsPopupOpen(false); // Close popup
@@ -34,10 +35,10 @@ function PatternTester() {
         notify('패턴 테스트를 시작합니다...', { type: 'info' });
 
         try {
-            const fileIds = selectedFiles.map(file => file.id);
+            const fileIds = (selectedFiles || []).map(file => file.id);
             const response = await dataProvider.testPattern(fileIds, pattern);
-            const results = Object.entries(response).map(([fileId, data]) => {
-                const file = selectedFiles.find(f => f.id === Number(fileId));
+            const results = Object.entries(response || {}).map(([fileId, data]) => {
+                const file = (selectedFiles || []).find(f => f.id === Number(fileId));
                 const fileName = file ? file.full_path : `ID: ${fileId}`;
                 return `파일: ${fileName}, 결과: ${JSON.stringify(data)}`;
             });

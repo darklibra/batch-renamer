@@ -16,9 +16,9 @@ import {
     ExpandMore, Close, Analytics, Speed, Security, BugReport
 } from '@mui/icons-material';
 
-import RenameAndCopy from './RenameAndCopy';
+import RenameAndCopy from './RenameAndCopy.jsx';
 import dataProvider from './dataProvider';
-import { JobMonitorDialog } from './jobs';
+import { JobMonitorDialog } from './jobs.jsx';
 
 // ===========================================
 // METADATA DISPLAY COMPONENT

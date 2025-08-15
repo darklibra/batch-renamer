@@ -4,6 +4,11 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    // Fix for "process is not defined" error
+    'process.env': {},
+    global: 'globalThis',
+  },
   test: {
     globals: true,
     environment: 'jsdom',

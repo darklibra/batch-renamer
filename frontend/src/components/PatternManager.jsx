@@ -10,12 +10,13 @@ import {
 } from '@mui/material';
 import {
     Add, Edit, Delete, PlayArrow, Stop, Visibility, Settings,
-    ExpandMore, Close, TestTube, Analytics, TrendingUp, Security,
+    ExpandMore, Close, Science, Analytics, TrendingUp, Security,
     CheckCircle, Error as ErrorIcon, Warning, Info, Speed,
     ContentCopy, Download, Upload, Refresh, BugReport
 } from '@mui/icons-material';
-import { useNotify } from 'react-admin';
+// Removed useNotify to avoid Router context issues
 import dataProvider from '../dataProvider';
+import { notify } from '../utils/notifications';
 
 // ===========================================
 // PATTERN CARD COMPONENT
@@ -176,7 +177,7 @@ const PatternCard = ({ pattern, onEdit, onDelete, onTest, onToggleActive }) => {
 
             <CardActions>
                 <Button 
-                    startIcon={<TestTube />} 
+                    startIcon={<Science />} 
                     onClick={() => onTest(pattern)}
                     size="small"
                 >
@@ -216,7 +217,7 @@ const PatternFormDialog = ({ open, onClose, pattern, onSave }) => {
     });
     const [validation, setValidation] = useState(null);
     const [loading, setLoading] = useState(false);
-    const notify = useNotify();
+    // Using imported notification system
 
     useEffect(() => {
         if (pattern) {
@@ -426,7 +427,7 @@ const PatternManager = () => {
     const [loading, setLoading] = useState(true);
     const [formDialog, setFormDialog] = useState({ open: false, pattern: null });
     const [systemStats, setSystemStats] = useState(null);
-    const notify = useNotify();
+    // Using imported notification system
 
     const fetchPatterns = async () => {
         setLoading(true);
@@ -596,7 +597,7 @@ const PatternManager = () => {
                         </Paper>
                     ) : (
                         <Box>
-                            {patterns
+                            {(patterns || [])
                                 .sort((a, b) => b.priority - a.priority)
                                 .map((pattern) => (
                                     <PatternCard

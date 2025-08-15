@@ -956,3 +956,51 @@ class PatternExtractionService:
                 'risk_score': 0.0,
                 'details': {'note': 'Security validator not available'}
             }
+    
+    def get_extraction_overview(self) -> Dict[str, Any]:
+        """
+        Get comprehensive overview of extraction statistics for dashboard
+        """
+        try:
+            # Get file statistics
+            total_files = self.file_repo.get_file_count()
+            files_with_metadata = self.file_repo.get_files_with_metadata_count()
+            
+            # Get pattern statistics  
+            total_patterns = self.pattern_repo.get_pattern_count()
+            active_patterns = self.pattern_repo.get_active_pattern_count()
+            
+            # Get application statistics
+            total_applications = self.application_repo.get_total_applications_count()
+            successful_applications = self.application_repo.get_successful_applications_count()
+            
+            # Get failure statistics
+            total_failures = self.failure_repo.get_total_failures_count()
+            unresolved_failures = self.failure_repo.get_unresolved_failures_count()
+            
+            # Calculate percentages
+            extraction_success_rate = 0.0
+            if total_files > 0:
+                extraction_success_rate = round((files_with_metadata / total_files) * 100, 2)
+            
+            application_success_rate = 0.0
+            if total_applications > 0:
+                application_success_rate = round((successful_applications / total_applications) * 100, 2)
+            
+            return {
+                'total_files': total_files,
+                'files_with_metadata': files_with_metadata,
+                'total_patterns': total_patterns, 
+                'active_patterns': active_patterns,
+                'total_applications': total_applications,
+                'successful_applications': successful_applications,
+                'total_failures': total_failures,
+                'unresolved_failures': unresolved_failures,
+                'extraction_success_rate': extraction_success_rate,
+                'application_success_rate': application_success_rate,
+                'performance_stats': self._performance_stats.copy()
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to generate extraction overview: {str(e)}")
+            raise Exception(f"Failed to get extraction overview: {str(e)}")

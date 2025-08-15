@@ -11,8 +11,9 @@ import {
     Warning, Info, PlayArrow, Stop, Visibility, Settings,
     ExpandMore, Close, InsertDriveFile, Folder
 } from '@mui/icons-material';
-import { useNotify } from 'react-admin';
+// Removed useNotify to avoid Router context issues
 import dataProvider from '../dataProvider';
+import { notify } from '../utils/notifications';
 
 // ===========================================
 // DIRECTORY BROWSER COMPONENT
@@ -22,7 +23,7 @@ const DirectoryBrowser = ({ onDirectorySelect, selectedPath }) => {
     const [currentPath, setCurrentPath] = useState('/');
     const [directories, setDirectories] = useState([]);
     const [loading, setLoading] = useState(false);
-    const notify = useNotify();
+    // Using imported notification system
 
     const fetchDirectories = async (path) => {
         setLoading(true);
@@ -399,7 +400,7 @@ const FileScanner = ({ onScanComplete }) => {
         errors: 0
     });
     
-    const notify = useNotify();
+    // Using imported notification system
 
     const startScan = async () => {
         if (!selectedDirectory) {

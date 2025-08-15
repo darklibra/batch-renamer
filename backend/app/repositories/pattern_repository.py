@@ -43,6 +43,16 @@ class PatternRepository:
         return self.db.query(ExtractionPattern).filter(
             ExtractionPattern.is_active == True
         ).order_by(desc(ExtractionPattern.priority)).all()
+    
+    def get_pattern_count(self) -> int:
+        """Get total count of patterns"""
+        return self.db.query(func.count(ExtractionPattern.id)).scalar()
+    
+    def get_active_pattern_count(self) -> int:
+        """Get count of active patterns"""
+        return self.db.query(func.count(ExtractionPattern.id)).filter(
+            ExtractionPattern.is_active == True
+        ).scalar()
 
     def get_patterns_paginated(
         self, 
@@ -169,6 +179,16 @@ class PatternApplicationRepository:
     
     def __init__(self, db: Session):
         self.db = db
+    
+    def get_total_applications_count(self) -> int:
+        """Get total count of pattern applications"""
+        return self.db.query(func.count(PatternApplication.id)).scalar()
+    
+    def get_successful_applications_count(self) -> int:
+        """Get count of successful pattern applications (extraction_score > 0)"""
+        return self.db.query(func.count(PatternApplication.id)).filter(
+            PatternApplication.extraction_score > 0
+        ).scalar()
 
     def create_application(self, application_data: Dict) -> PatternApplication:
         """Create a new pattern application record"""
@@ -318,6 +338,16 @@ class PatternFailureRepository:
     
     def __init__(self, db: Session):
         self.db = db
+    
+    def get_total_failures_count(self) -> int:
+        """Get total count of pattern failures"""
+        return self.db.query(func.count(PatternFailure.id)).scalar()
+    
+    def get_unresolved_failures_count(self) -> int:
+        """Get count of unresolved failures"""
+        return self.db.query(func.count(PatternFailure.id)).filter(
+            PatternFailure.resolved_at.is_(None)
+        ).scalar()
 
     def create_failure(self, failure_data: Dict) -> PatternFailure:
         """Create a new pattern failure record"""

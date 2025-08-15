@@ -60,16 +60,19 @@ class FileIndexingService:
         # Generate unique job ID
         job_id = str(uuid.uuid4())
         
-        # Create job record with security information
+        # Create job record with security information in result_data (for compatibility)
         job_data = {
             'id': job_id,
             'directory_path': directory_path,
             'status': 'started',
             'stage': 'initializing',
-            'security_validation': {
-                'validated': True,
-                'risk_level': security_result.risk_level,
-                'security_details': security_result.details
+            'result_data': {
+                'security_info': {
+                    'validated': True,
+                    'risk_level': security_result.risk_level,
+                    'validation_time': datetime.utcnow().isoformat(),
+                    'security_details': security_result.details
+                }
             }
         }
         

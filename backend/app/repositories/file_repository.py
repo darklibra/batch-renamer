@@ -118,6 +118,16 @@ class FileRepository:
             return True
         return False
     
+    def get_file_count(self) -> int:
+        """Get total count of indexed files"""
+        return self.db.query(func.count(IndexedFile.id)).scalar()
+    
+    def get_files_with_metadata_count(self) -> int:
+        """Get count of files that have extracted metadata"""
+        return self.db.query(func.count(IndexedFile.id)).filter(
+            IndexedFile.extracted_data.isnot(None)
+        ).scalar()
+    
     def get_file_stats(self) -> Dict:
         """Get file statistics"""
         total_files = self.db.query(func.count(IndexedFile.id)).scalar()

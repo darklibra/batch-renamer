@@ -1,6 +1,6 @@
 import simpleRestProvider from 'ra-data-simple-rest';
 
-const apiUrl = (process.env.REACT_APP_BACKEND_URL || process.env.VITE_REACT_APP_API_BASE_URL || 'http://localhost:8000') + '/api/v1';
+const apiUrl = (import.meta.env.VITE_REACT_APP_API_BASE_URL || 'http://localhost:8000') + '/api/v1';
 
 const customDataProvider = {
     getList: (resource, params) => {
@@ -27,15 +27,50 @@ const customDataProvider = {
                         throw new Error(error.detail || 'An error occurred.');
                     });
                 }
-                const contentRange = response.headers.get('Content-Range');
-                const total = contentRange ? parseInt(contentRange.split('/').pop(), 10) : 0;
-                return response.json().then(data => {
-                    // 각 아이템에 id가 있는지 확인 (디버깅용)
-                    if (data.length > 0 && data[0].id === undefined) {
-                        console.error("Received data items do not have an 'id' key:", data);
-                        // 여기서 오류를 throw하거나, id를 강제로 추가하는 로직을 넣을 수 있습니다.
-                        // 예를 들어, data.map(item => ({ ...item, id: item.some_other_unique_field }))
+                return response.json().then(responseData => {
+                    // Handle different API response structures
+                    let data, total;
+                    
+                    if (resource === 'files') {
+                        // Files API returns: {files: [], total: 0, page: 1, per_page: 10, total_pages: 0}
+                        data = responseData.files || [];
+                        total = responseData.total || 0;
+                    } else if (resource === 'patterns') {
+                        // Patterns API might return different structure
+                        if (responseData.patterns) {
+                            data = responseData.patterns || [];
+                            total = responseData.pagination?.total || responseData.total || 0;
+                        } else {
+                            // Fallback for standard array response
+                            data = Array.isArray(responseData) ? responseData : [];
+                            total = data.length;
+                        }
+                    } else if (resource === 'jobs') {
+                        // Jobs API returns: {jobs: [], total: 0, page: 1, per_page: 20}
+                        data = responseData.jobs || [];
+                        total = responseData.total || 0;
+                    } else {
+                        // Default handling for other resources
+                        if (Array.isArray(responseData)) {
+                            data = responseData;
+                            total = responseData.length;
+                        } else {
+                            data = responseData.data || responseData.items || [];
+                            total = responseData.total || data.length;
+                        }
                     }
+                    
+                    // Ensure data is always an array
+                    if (!Array.isArray(data)) {
+                        console.warn(`Expected array for ${resource} but got:`, typeof data, data);
+                        data = [];
+                    }
+                    
+                    // Validate that items have IDs
+                    if (data.length > 0 && data[0].id === undefined) {
+                        console.error(`Received data items do not have an 'id' key for ${resource}:`, data);
+                    }
+                    
                     return {
                         data: data,
                         total: total,
@@ -468,14 +503,23 @@ const customDataProvider = {
 
     // Job Management
     getJobStatus: (jobId) => {
+        // Try pattern jobs first, then indexing jobs with correct endpoints
         return fetch(`${apiUrl}/patterns/jobs/${jobId}`)
             .then(response => {
-                if (!response.ok) {
-                    return response.json().then(error => {
-                        throw new Error(error.detail || 'Failed to get job status');
-                    });
+                if (response.ok) {
+                    return response.json();
                 }
-                return response.json();
+                // If not found in pattern jobs, try indexing jobs with correct endpoint
+                return fetch(`${apiUrl}/files/index/${jobId}/progress`)
+                    .then(indexingResponse => {
+                        if (!indexingResponse.ok) {
+                            throw new Error('Job not found');
+                        }
+                        return indexingResponse.json();
+                    });
+            })
+            .catch(error => {
+                throw new Error(error.message || 'Failed to get job status');
             });
     },
 
@@ -488,14 +532,52 @@ const customDataProvider = {
             ...(job_type && { job_type })
         });
 
-        return fetch(`${apiUrl}/patterns/jobs?${query}`)
+        // Fetch both pattern extraction jobs and file indexing jobs
+        const patternJobsPromise = fetch(`${apiUrl}/patterns/jobs/?${query}`)
             .then(response => {
                 if (!response.ok) {
-                    return response.json().then(error => {
-                        throw new Error(error.detail || 'Failed to fetch jobs');
-                    });
+                    return { jobs: [], total: 0 };
                 }
                 return response.json();
+            })
+            .catch(() => ({ jobs: [], total: 0 }));
+
+        const indexingJobsPromise = fetch(`${apiUrl}/files/index/jobs?limit=${per_page}`)
+            .then(response => {
+                if (!response.ok) {
+                    return [];
+                }
+                return response.json();
+            })
+            .catch(() => []);
+
+        return Promise.all([patternJobsPromise, indexingJobsPromise])
+            .then(([patternResult, indexingJobs]) => {
+                // Combine both types of jobs
+                const patternJobs = patternResult.jobs || [];
+                const allJobs = [
+                    ...patternJobs,
+                    ...(Array.isArray(indexingJobs) ? indexingJobs : [])
+                ];
+
+                // Sort by created/started date, newest first
+                allJobs.sort((a, b) => {
+                    const dateA = new Date(a.started_at || a.created_at || 0);
+                    const dateB = new Date(b.started_at || b.created_at || 0);
+                    return dateB - dateA;
+                });
+
+                // Apply pagination to combined results
+                const startIndex = (page - 1) * per_page;
+                const endIndex = startIndex + per_page;
+                const paginatedJobs = allJobs.slice(startIndex, endIndex);
+
+                return {
+                    jobs: paginatedJobs,
+                    total: allJobs.length,
+                    page,
+                    per_page
+                };
             });
     },
 

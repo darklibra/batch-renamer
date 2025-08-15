@@ -29,7 +29,7 @@ const FileSelectionPopup = ({ open, onClose, onFileSelect, initialSelectedFileId
   // Effect to initialize selectedFiles when popup opens
   useEffect(() => {
     if (open) {
-      setSelectedFiles(new Set(initialSelectedFileIds.map(id => Number(id))));
+      setSelectedFiles(new Set((initialSelectedFileIds || []).map(id => Number(id))));
       setSearchTerm(''); // 팝업 열릴 때 검색어 초기화
       setDebouncedSearchTerm(''); // 디바운스 검색어도 초기화
       setPage(0); // 페이지 초기화

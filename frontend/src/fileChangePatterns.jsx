@@ -5,7 +5,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useNotify, useRedirect, useRecordContext, useFormState } from 'react-admin';
 import { useFormContext } from 'react-hook-form'; // Import useFormContext
 import dataProvider from './dataProvider';
-import FileSelectionPopup from './FileSelectionPopup';
+import FileSelectionPopup from './FileSelectionPopup.jsx';
 
 const ApplyPatternBulkActionButton = () => {
   const { selectedIds } = useListContext();
