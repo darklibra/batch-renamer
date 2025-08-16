@@ -14,12 +14,14 @@ import {
   Toolbar,
   Typography,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Divider,
+  ListSubheader
 } from '@mui/material';
 import {
   Menu as MenuIcon
 } from '@mui/icons-material';
-import { navigationItems } from '../routes/routes.config.js';
+import { navigationItems, routeGroups } from '../routes/routes.config.js';
 
 const drawerWidth = 240;
 
@@ -41,21 +43,30 @@ const Layout = ({ children }) => {
     }
   };
 
-  const drawer = (
-    <div>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          Clear File
-        </Typography>
-      </Toolbar>
-      <List>
-        {navigationItems.map((item) => {
+  const renderNavigationGroup = (groupName, paths) => {
+    const groupItems = navigationItems.filter(item => paths.includes(item.path));
+    if (groupItems.length === 0) return null;
+
+    const groupLabels = {
+      main: 'Core Features',
+      operations: 'File Operations', 
+      management: 'Management',
+      system: 'System'
+    };
+
+    return (
+      <React.Fragment key={groupName}>
+        <ListSubheader component="div" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
+          {groupLabels[groupName] || groupName}
+        </ListSubheader>
+        {groupItems.map((item) => {
           const IconComponent = item.icon;
           return (
             <ListItem key={item.title} disablePadding>
               <ListItemButton
                 selected={location.pathname === item.path}
                 onClick={() => handleNavigation(item.path)}
+                sx={{ pl: 2 }}
               >
                 <ListItemIcon>
                   <IconComponent />
@@ -65,6 +76,22 @@ const Layout = ({ children }) => {
             </ListItem>
           );
         })}
+        <Divider sx={{ my: 1 }} />
+      </React.Fragment>
+    );
+  };
+
+  const drawer = (
+    <div>
+      <Toolbar>
+        <Typography variant="h6" noWrap component="div">
+          Clear File
+        </Typography>
+      </Toolbar>
+      <List sx={{ pt: 1 }}>
+        {Object.entries(routeGroups).map(([groupName, paths]) => 
+          renderNavigationGroup(groupName, paths)
+        )}
       </List>
     </div>
   );

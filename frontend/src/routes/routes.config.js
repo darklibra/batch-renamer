@@ -5,7 +5,8 @@ import {
   Pattern,
   FolderOpen,
   Work,
-  Settings
+  Settings,
+  DriveFileMoveOutlined
 } from '@mui/icons-material';
 
 // Lazy load pages for better performance
@@ -16,6 +17,7 @@ const PatternListPage = lazy(() => import('../pages/PatternListPage.jsx'));
 const PatternDetailsPage = lazy(() => import('../pages/PatternDetailsPage.jsx'));
 const FileScannerPage = lazy(() => import('../pages/FileScannerPage.jsx'));
 const PatternManagerPage = lazy(() => import('../pages/PatternManagerPage.jsx'));
+const SmartFileManagerPage = lazy(() => import('../pages/SmartFileManagerPage.jsx'));
 const JobListPage = lazy(() => import('../pages/JobListPage.jsx'));
 
 // Route configuration with metadata
@@ -75,6 +77,14 @@ export const routeConfig = [
     exact: true
   },
   {
+    path: '/smart-file-manager',
+    element: SmartFileManagerPage,
+    title: 'Smart File Manager',
+    icon: DriveFileMoveOutlined,
+    showInNav: true,
+    exact: true
+  },
+  {
     path: '/jobs',
     element: JobListPage,
     title: 'Jobs',
@@ -90,6 +100,7 @@ export const navigationItems = routeConfig.filter(route => route.showInNav);
 // Route groups for organization
 export const routeGroups = {
   main: ['/', '/files', '/patterns'],
-  tools: ['/scanner', '/pattern-manager'],
+  operations: ['/scanner', '/smart-file-manager'],
+  management: ['/pattern-manager'],
   system: ['/jobs']
 };

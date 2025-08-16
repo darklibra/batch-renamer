@@ -37,12 +37,36 @@ class FileStatsResponse(BaseModel):
 # Indexing-related schemas
 class IndexFilesRequest(BaseModel):
     directory_path: str = Field(..., description="Absolute path to directory to index")
+    file_extensions: Optional[List[str]] = Field(None, description="List of file extensions to include (e.g., ['pdf', 'txt'])")
+    max_file_size_mb: Optional[int] = Field(100, description="Maximum file size in MB")
+    max_files: Optional[int] = Field(10000, description="Maximum number of files to process")
+    recursion_depth: Optional[int] = Field(5, description="Maximum recursion depth (-1 for unlimited)")
 
     @validator("directory_path")
     def validate_directory_path(cls, v):
         if not v or not v.strip():
             raise ValueError("Directory path cannot be empty")
         return v.strip()
+    
+    @validator("file_extensions")
+    def validate_file_extensions(cls, v):
+        if v is not None:
+            # Clean up extensions (remove dots, convert to lowercase)
+            cleaned = []
+            for ext in v:
+                clean_ext = ext.strip().lower()
+                if clean_ext.startswith('.'):
+                    clean_ext = clean_ext[1:]
+                if clean_ext:  # Only add non-empty extensions
+                    cleaned.append(clean_ext)
+            return cleaned if cleaned else None
+        return v
+    
+    @validator("recursion_depth")
+    def validate_recursion_depth(cls, v):
+        if v is not None and v < -1:
+            raise ValueError("Recursion depth must be -1 (unlimited) or positive integer")
+        return v
 
 
 class IndexFilesResponse(BaseModel):

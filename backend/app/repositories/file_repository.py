@@ -59,6 +59,17 @@ class FileRepository:
             self.db.refresh(file_obj)
         return file_obj
     
+    def update_file_extracted_data(self, file_id: int, extracted_data: Dict, pattern_id: int) -> Optional[IndexedFile]:
+        """Update file with extracted data and pattern_id"""
+        file_obj = self.db.query(IndexedFile).filter(IndexedFile.id == file_id).first()
+        if file_obj:
+            file_obj.extracted_data = extracted_data
+            file_obj.pattern_id = pattern_id
+            file_obj.updated_at = datetime.utcnow()
+            self.db.commit()
+            self.db.refresh(file_obj)
+        return file_obj
+    
     def get_files_by_pattern(self, pattern_id: int) -> List[IndexedFile]:
         """Get files that match a specific pattern"""
         return self.db.query(IndexedFile).filter(

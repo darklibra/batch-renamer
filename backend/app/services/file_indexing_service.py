@@ -40,9 +40,9 @@ class FileIndexingService:
         
         logger.info(f"FileIndexingService initialized with enhanced security validation")
     
-    async def start_indexing_job(self, directory_path: str) -> str:
+    async def start_indexing_job(self, directory_path: str, scan_config: dict = None) -> str:
         """
-        Start a new indexing job with enhanced security validation
+        Start a new indexing job with enhanced security validation and filtering
         """
         # Enhanced security validation
         security_result = self.security_manager.validate_scan_path(directory_path)
@@ -60,13 +60,18 @@ class FileIndexingService:
         # Generate unique job ID
         job_id = str(uuid.uuid4())
         
-        # Create job record with security information in result_data (for compatibility)
+        # Default scan configuration
+        if scan_config is None:
+            scan_config = {}
+        
+        # Create job record with security information and scan config
         job_data = {
             'id': job_id,
             'directory_path': directory_path,
             'status': 'started',
             'stage': 'initializing',
             'result_data': {
+                'scan_config': scan_config,
                 'security_info': {
                     'validated': True,
                     'risk_level': security_result.risk_level,
@@ -78,8 +83,8 @@ class FileIndexingService:
         
         self.job_repo.create_job(job_data)
         
-        # Start background indexing
-        asyncio.create_task(self._perform_indexing(job_id, directory_path))
+        # Start background indexing with scan config
+        asyncio.create_task(self._perform_indexing(job_id, directory_path, scan_config))
         
         logger.info(
             f"Indexing job {job_id} started for {directory_path} "
@@ -88,12 +93,19 @@ class FileIndexingService:
         
         return job_id
     
-    async def _perform_indexing(self, job_id: str, directory_path: str):
+    async def _perform_indexing(self, job_id: str, directory_path: str, scan_config: dict = None):
         """
-        Background task for file indexing
+        Background task for file indexing with filtering support
         """
         try:
-            logger.info(f"Starting indexing job {job_id} for {directory_path}")
+            logger.info(f"Starting indexing job {job_id} for {directory_path} with config: {scan_config}")
+            
+            # Record start time for processing time tracking
+            start_time = datetime.utcnow()
+            
+            # Default scan configuration
+            if scan_config is None:
+                scan_config = {}
             
             # Update job status
             await self._update_job_progress(job_id, {
@@ -104,13 +116,18 @@ class FileIndexingService:
             # Get active exclusion patterns
             exclusion_patterns = self.exclusion_repo.get_active_patterns()
             
-            # Discover files with progress tracking
+            # Discover files with progress tracking and filtering
             discovered_files = []
             processed_count = 0
+            file_type_summary = {}
             
-            for file_data in self._discover_files(directory_path, exclusion_patterns):
+            for file_data in self._discover_files(directory_path, exclusion_patterns, scan_config):
                 discovered_files.append(file_data)
                 processed_count += 1
+                
+                # Track file extensions for summary statistics
+                extension = file_data.get('extension', '').lower() or 'no extension'
+                file_type_summary[extension] = file_type_summary.get(extension, 0) + 1
                 
                 # Progress update every 100 files
                 if processed_count % 100 == 0:
@@ -164,12 +181,29 @@ class FileIndexingService:
                     # Continue with next batch
                     continue
             
-            # Final job update
+            # Calculate processing time
+            end_time = datetime.utcnow()
+            processing_time_seconds = (end_time - start_time).total_seconds()
+            
+            # Final job update with enhanced result data matching frontend expectations
             result_data = {
+                # Original data structure
                 'total_discovered': len(discovered_files),
                 'already_indexed': len(existing_paths),
                 'newly_indexed': len(indexed_files),
-                'indexed_file_ids': [f.id for f in indexed_files]
+                'indexed_file_ids': [f.id for f in indexed_files],
+                
+                # New data structure matching frontend ScanResults expectations
+                'total_files_found': len(discovered_files),
+                'files_indexed': len(indexed_files),
+                'processing_time_seconds': round(processing_time_seconds, 2),
+                'file_type_summary': file_type_summary,
+                'errors': 0,  # TODO: Track actual errors if needed
+                'error_details': [],  # TODO: Collect error details if needed
+                'scan_config': scan_config,
+                'directory_path': directory_path,
+                'start_time': start_time.isoformat(),
+                'end_time': end_time.isoformat()
             }
             
             await self._update_job_progress(job_id, {
@@ -200,28 +234,65 @@ class FileIndexingService:
     
     def _discover_files(self, 
                        directory_path: str, 
-                       exclusion_patterns: List[ExclusionPattern]) -> Generator[Dict, None, None]:
+                       exclusion_patterns: List[ExclusionPattern],
+                       scan_config: dict = None) -> Generator[Dict, None, None]:
         """
-        Recursively discover files, applying exclusion patterns
+        Recursively discover files, applying exclusion patterns and scan filters
         """
         base_path = Path(directory_path).resolve()
         
+        # Extract scan configuration
+        if scan_config is None:
+            scan_config = {}
+        
+        file_extensions = scan_config.get('file_extensions', [])
+        recursion_depth = scan_config.get('recursion_depth', -1)  # -1 means unlimited
+        max_file_size_mb = scan_config.get('max_file_size_mb', None)
+        max_files = scan_config.get('max_files', None)
+        
+        processed_count = 0
+        
         for root, dirs, files in os.walk(base_path):
+            # Calculate current depth from base path
+            current_depth = len(Path(root).relative_to(base_path).parts)
+            
+            # Apply recursion depth filter
+            if recursion_depth > 0 and current_depth >= recursion_depth:
+                dirs.clear()  # Don't go deeper
+                continue
+            
             # Apply exclusion patterns to directories (modify dirs in-place)
             dirs[:] = [d for d in dirs if not self._is_excluded(
                 os.path.join(root, d), exclusion_patterns, base_path
             )]
             
             for filename in files:
+                # Check max files limit
+                if max_files is not None and processed_count >= max_files:
+                    logger.info(f"Reached maximum file limit: {max_files}")
+                    return
+                
                 full_path = os.path.join(root, filename)
                 
                 # Apply exclusion patterns to files
                 if self._is_excluded(full_path, exclusion_patterns, base_path):
                     continue
                 
+                # Apply file type filter
+                if file_extensions and not self._matches_file_type(filename, file_extensions):
+                    continue
+                
                 try:
+                    # Check file size if limit is set
+                    if max_file_size_mb is not None:
+                        file_size_mb = os.path.getsize(full_path) / (1024 * 1024)
+                        if file_size_mb > max_file_size_mb:
+                            logger.debug(f"Skipping large file: {full_path} ({file_size_mb:.2f}MB)")
+                            continue
+                    
                     # Extract file metadata using the model method
                     file_data = IndexedFile.from_file_path(full_path, str(base_path))
+                    processed_count += 1
                     yield file_data
                     
                 except (OSError, FileNotFoundError, PermissionError) as e:
@@ -267,6 +338,16 @@ class FileIndexingService:
                 return True
         
         return False
+    
+    def _matches_file_type(self, filename: str, allowed_extensions: List[str]) -> bool:
+        """
+        Check if file matches any of the allowed file extensions
+        """
+        if not allowed_extensions:
+            return True  # No filter means allow all
+        
+        file_ext = Path(filename).suffix[1:].lower()  # Remove dot and convert to lowercase
+        return file_ext in [ext.lower() for ext in allowed_extensions]
     
     def _match_pattern(self, path: str, pattern: str, pattern_type: str) -> bool:
         """Match path against pattern based on type"""

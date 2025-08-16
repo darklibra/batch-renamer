@@ -20,9 +20,13 @@ import {
   FilePresent,
   CalendarToday,
   Folder,
-  Label
+  Label,
+  DataObject
 } from '@mui/icons-material';
 import dataProvider from '../dataProvider';
+import MetadataExtractor from '../components/MetadataExtractor';
+import MetadataViewer from '../components/MetadataViewer';
+import SmartFileManager from '../components/SmartFileManager';
 
 const FileDetailsPage = () => {
   const { id } = useParams();
@@ -30,12 +34,15 @@ const FileDetailsPage = () => {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [extractedData, setExtractedData] = useState(null);
+  const [metadataRefreshKey, setMetadataRefreshKey] = useState(0);
 
   useEffect(() => {
     if (id) {
       fetchFile();
+      fetchExtractedData();
     }
-  }, [id]);
+  }, [id, metadataRefreshKey]);
 
   const fetchFile = async () => {
     try {
@@ -49,6 +56,31 @@ const FileDetailsPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchExtractedData = async () => {
+    try {
+      const result = await dataProvider.getFileExtractedData(id, false);
+      setExtractedData(result);
+    } catch (error) {
+      // No extracted data available - that's okay
+      console.log('No extracted data found for file:', id);
+      setExtractedData(null);
+    }
+  };
+
+  const handleExtractionComplete = (data) => {
+    setExtractedData(data);
+    setMetadataRefreshKey(prev => prev + 1);
+  };
+
+  const handleExtractionError = (error) => {
+    console.error('Extraction error:', error);
+    // You could show a toast notification here
+  };
+
+  const handleMetadataUpdate = (updatedData) => {
+    setExtractedData(updatedData);
   };
 
   const formatDate = (dateString) => {
@@ -142,53 +174,53 @@ const FileDetailsPage = () => {
               <Divider sx={{ mb: 3 }} />
 
               <List>
-                <ListItem>
-                  <ListItemText
-                    primary="Full Path"
-                    secondary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                        <Folder sx={{ mr: 1, fontSize: 16 }} />
-                        {file.full_path}
-                      </Box>
-                    }
-                  />
+                <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                    Full Path
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Folder sx={{ mr: 1, fontSize: 16 }} />
+                    <Typography variant="body2">
+                      {file.full_path}
+                    </Typography>
+                  </Box>
                 </ListItem>
                 
-                <ListItem>
-                  <ListItemText
-                    primary="Directory"
-                    secondary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                        <Folder sx={{ mr: 1, fontSize: 16 }} />
-                        {file.path}
-                      </Box>
-                    }
-                  />
+                <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                    Directory
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Folder sx={{ mr: 1, fontSize: 16 }} />
+                    <Typography variant="body2">
+                      {file.path}
+                    </Typography>
+                  </Box>
                 </ListItem>
 
-                <ListItem>
-                  <ListItemText
-                    primary="Created"
-                    secondary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                        <CalendarToday sx={{ mr: 1, fontSize: 16 }} />
-                        {formatDate(file.created_at)}
-                      </Box>
-                    }
-                  />
+                <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                    Created
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CalendarToday sx={{ mr: 1, fontSize: 16 }} />
+                    <Typography variant="body2">
+                      {formatDate(file.created_at)}
+                    </Typography>
+                  </Box>
                 </ListItem>
 
                 {file.updated_at && (
-                  <ListItem>
-                    <ListItemText
-                      primary="Last Updated"
-                      secondary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                          <CalendarToday sx={{ mr: 1, fontSize: 16 }} />
-                          {formatDate(file.updated_at)}
-                        </Box>
-                      }
-                    />
+                  <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                      Last Updated
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <CalendarToday sx={{ mr: 1, fontSize: 16 }} />
+                      <Typography variant="body2">
+                        {formatDate(file.updated_at)}
+                      </Typography>
+                    </Box>
                   </ListItem>
                 )}
               </List>
@@ -196,35 +228,43 @@ const FileDetailsPage = () => {
           </Card>
         </Grid>
 
-        {/* Extracted Metadata */}
+        {/* Basic File Info */}
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <Label sx={{ mr: 1 }} />
                 <Typography variant="h6">
-                  Extracted Metadata
+                  File Info
                 </Typography>
               </Box>
 
-              {file.extracted_data && Object.keys(file.extracted_data).length > 0 ? (
-                <List dense>
-                  {Object.entries(file.extracted_data).map(([key, value]) => (
-                    <ListItem key={key} sx={{ pl: 0 }}>
-                      <ListItemText
-                        primary={key}
-                        secondary={String(value)}
-                        primaryTypographyProps={{ variant: 'subtitle2' }}
-                        secondaryTypographyProps={{ variant: 'body2' }}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              ) : (
-                <Typography variant="body2" color="textSecondary">
-                  No metadata extracted for this file. Try running pattern matching to extract structured data from the filename.
-                </Typography>
-              )}
+              <List dense>
+                <ListItem sx={{ pl: 0 }}>
+                  <ListItemText
+                    primary="File Size"
+                    secondary={file.size ? `${(file.size / 1024).toFixed(2)} KB` : 'Unknown'}
+                    primaryTypographyProps={{ variant: 'subtitle2' }}
+                    secondaryTypographyProps={{ variant: 'body2' }}
+                  />
+                </ListItem>
+                <ListItem sx={{ pl: 0 }}>
+                  <ListItemText
+                    primary="Extension"
+                    secondary={file.extension || 'No extension'}
+                    primaryTypographyProps={{ variant: 'subtitle2' }}
+                    secondaryTypographyProps={{ variant: 'body2' }}
+                  />
+                </ListItem>
+                <ListItem sx={{ pl: 0 }}>
+                  <ListItemText
+                    primary="Directory"
+                    secondary={file.path || 'Unknown'}
+                    primaryTypographyProps={{ variant: 'subtitle2' }}
+                    secondaryTypographyProps={{ variant: 'body2' }}
+                  />
+                </ListItem>
+              </List>
 
               {file.pattern_id && (
                 <Box sx={{ mt: 2 }}>
@@ -239,6 +279,39 @@ const FileDetailsPage = () => {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Metadata Extraction Section */}
+        <Grid item xs={12}>
+          <MetadataExtractor
+            fileId={parseInt(id)}
+            fileName={file.filename}
+            onExtractionComplete={handleExtractionComplete}
+            onError={handleExtractionError}
+          />
+        </Grid>
+
+        {/* Metadata Viewer Section */}
+        <Grid item xs={12}>
+          <MetadataViewer
+            fileId={parseInt(id)}
+            fileName={file.filename}
+            extractedData={extractedData}
+            onDataUpdate={handleMetadataUpdate}
+          />
+        </Grid>
+
+        {/* Smart File Manager Section - Only show if file has extracted data */}
+        {extractedData && extractedData.extracted_data && (
+          <Grid item xs={12}>
+            <SmartFileManager
+              selectedFileIds={[parseInt(id)]}
+              onOperationComplete={(result) => {
+                console.log('Smart operation completed:', result);
+                // Could show success message or refresh data here
+              }}
+            />
+          </Grid>
+        )}
       </Grid>
     </Box>
   );

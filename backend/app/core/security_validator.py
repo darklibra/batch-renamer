@@ -78,7 +78,7 @@ class PatternSecurityValidator:
         (r'\(\?\#.*\)', 'Comments in regex can hide dangerous constructs'),
         
         # Recursive patterns (not supported in Python but can cause errors)
-        (r'\(\?\R\)', 'Recursive patterns are not supported and dangerous'),
+        (r'\(\?\?.*\)', 'Non-standard regex extensions can cause errors'),
         (r'\(\?\&.*\)', 'Subroutine calls are not supported in Python'),
     ]
     

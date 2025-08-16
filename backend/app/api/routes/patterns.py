@@ -12,7 +12,9 @@ from app.repositories.pattern_repository import (
     PatternFailureRepository,
     PatternExtractionJobRepository,
 )
+from app.repositories.selection_history_repository import PatternSelectionHistoryRepository
 from app.services.pattern_extraction_service import PatternExtractionService
+from app.services.pattern_validation_service import PatternValidationService, PatternTester
 
 router = APIRouter(prefix="/patterns", tags=["Pattern Management"])
 
@@ -69,6 +71,71 @@ class BatchExtractionRequest(BaseModel):
 
 class FailureResolutionRequest(BaseModel):
     pattern_id: int = Field(..., description="Pattern ID to resolve the failure")
+
+
+class PatternValidationRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100, description="Pattern name")
+    regex_pattern: str = Field(
+        ..., min_length=1, max_length=500, description="Regular expression pattern"
+    )
+    field_mapping: Dict[str, Any] = Field(
+        ..., description="Field mapping configuration"
+    )
+    priority: int = Field(
+        default=1,
+        ge=0,
+        le=100,
+        description="Pattern priority (higher = more important)",
+    )
+    test_filenames: Optional[List[str]] = Field(
+        None, description="Optional list of filenames to test against"
+    )
+
+
+class PatternAnalysisRequest(BaseModel):
+    file_filters: Optional[Dict[str, Any]] = Field(
+        default_factory=dict, description="Filters to apply to file selection"
+    )
+    limit: int = Field(
+        default=100, ge=1, le=1000, description="Maximum number of files to analyze"
+    )
+    quality_threshold: int = Field(
+        default=70, ge=0, le=100, description="Minimum quality threshold for recommendations"
+    )
+    exclude_previously_selected: bool = Field(
+        default=True, description="Exclude files that were previously auto-selected for this pattern"
+    )
+    force_include_all: bool = Field(
+        default=False, description="Force include all files regardless of selection history"
+    )
+
+
+class PatternSelectionRequest(BaseModel):
+    file_ids: List[int] = Field(
+        ..., description="List of file IDs that were selected"
+    )
+    selection_context: Optional[Dict[str, Any]] = Field(
+        default_factory=dict, description="Context information about the selection"
+    )
+
+
+class FileExtractionScore(BaseModel):
+    file_id: int
+    filename: str
+    full_path: str
+    extraction_score: int
+    extracted_fields: int
+    potential_data: Dict[str, Any]
+    confidence: float
+
+
+class PatternAnalysisResponse(BaseModel):
+    pattern_id: int
+    pattern_name: str
+    analyzed_files: int
+    ranked_files: List[FileExtractionScore]
+    recommendations: Dict[str, Any]
+    execution_time_ms: int
 
 
 class PatternResponse(BaseModel):
@@ -129,9 +196,10 @@ def get_pattern_service(db: Session = Depends(get_db)) -> PatternExtractionServi
     application_repo = PatternApplicationRepository(db)
     failure_repo = PatternFailureRepository(db)
     job_repo = PatternExtractionJobRepository(db)
+    selection_history_repo = PatternSelectionHistoryRepository(db)
 
     return PatternExtractionService(
-        file_repo, pattern_repo, application_repo, failure_repo, job_repo
+        file_repo, pattern_repo, application_repo, failure_repo, job_repo, selection_history_repo
     )
 
 
@@ -157,18 +225,57 @@ def get_job_repository(db: Session = Depends(get_db)) -> PatternExtractionJobRep
     return PatternExtractionJobRepository(db)
 
 
+def get_pattern_validation_service() -> PatternValidationService:
+    """Get pattern validation service"""
+    return PatternValidationService()
+
+
+def get_pattern_tester() -> PatternTester:
+    """Get pattern tester service"""
+    validation_service = PatternValidationService()
+    return PatternTester(validation_service)
+
+
+def get_selection_history_repository(db: Session = Depends(get_db)) -> PatternSelectionHistoryRepository:
+    """Get pattern selection history repository"""
+    return PatternSelectionHistoryRepository(db)
+
+
 # Pattern CRUD endpoints
 @router.post("/", response_model=PatternResponse, status_code=201)
 async def create_pattern(
     pattern_data: PatternCreateRequest,
     pattern_repo: PatternRepository = Depends(get_pattern_repository),
+    validation_service: PatternValidationService = Depends(get_pattern_validation_service),
+    pattern_tester: PatternTester = Depends(get_pattern_tester),
 ):
-    """Create a new extraction pattern"""
+    """Create a new extraction pattern with comprehensive security validation"""
     try:
-        # Validate regex pattern
+        # Basic regex compilation check
         import re
-
         re.compile(pattern_data.regex_pattern)
+
+        # SECURITY: Comprehensive pattern validation with ReDoS protection
+        pattern_dict = pattern_data.dict()
+        validation_report = validation_service.validate_pattern(pattern_dict)
+        
+        # Check for critical security issues
+        if validation_report.has_critical_issues():
+            critical_errors = [r.message for r in validation_report.get_errors() if r.severity.value == "critical"]
+            raise HTTPException(
+                status_code=400,
+                detail=f"Pattern validation failed with critical security issues: {'; '.join(critical_errors)}"
+            )
+        
+        # SECURITY: Pattern security validation (ReDoS protection)
+        security_result = pattern_tester.validate_pattern_security(pattern_data.regex_pattern)
+        if not security_result['is_valid']:
+            risk_score = security_result.get('risk_score', 0)
+            if risk_score >= 0.7:  # High/Critical risk
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Pattern rejected due to security risk (score: {risk_score:.2f}): {security_result['message']}"
+                )
 
         # Check for duplicate names
         existing = pattern_repo.get_pattern_by_name(pattern_data.name)
@@ -179,11 +286,18 @@ async def create_pattern(
             )
 
         # Create pattern (exclude description field as it's not in the model)
-        pattern_dict = pattern_data.dict()
         pattern_dict.pop('description', None)  # Remove description field if present
         pattern = pattern_repo.create_pattern(pattern_dict)
+        
+        # Return pattern with validation metadata
+        response_data = pattern.to_dict()
+        response_data['validation_score'] = validation_report.score
+        response_data['security_risk_score'] = security_result.get('risk_score', 0)
+        
         return PatternResponse(**pattern.to_dict())
 
+    except HTTPException:
+        raise
     except re.error as e:
         raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
     except Exception as e:
@@ -244,19 +358,54 @@ async def update_pattern(
     update_data: PatternUpdateRequest,
     pattern_id: int = Path(..., description="Pattern ID"),
     pattern_repo: PatternRepository = Depends(get_pattern_repository),
+    validation_service: PatternValidationService = Depends(get_pattern_validation_service),
+    pattern_tester: PatternTester = Depends(get_pattern_tester),
 ):
-    """Update an extraction pattern"""
+    """Update an extraction pattern with comprehensive security validation"""
     try:
+        # Get existing pattern
+        existing_pattern = pattern_repo.get_pattern_by_id(pattern_id)
+        if not existing_pattern:
+            raise HTTPException(status_code=404, detail="Pattern not found")
+
         # Validate regex if provided
         if update_data.regex_pattern:
             import re
-
             re.compile(update_data.regex_pattern)
+
+            # SECURITY: Validate new regex pattern with ReDoS protection
+            # Create full pattern data for validation
+            full_pattern_data = {
+                'name': update_data.name or existing_pattern.name,
+                'regex_pattern': update_data.regex_pattern,
+                'field_mapping': update_data.field_mapping or existing_pattern.field_mapping,
+                'priority': update_data.priority or existing_pattern.priority
+            }
+            
+            validation_report = validation_service.validate_pattern(full_pattern_data)
+            
+            # Check for critical security issues
+            if validation_report.has_critical_issues():
+                critical_errors = [r.message for r in validation_report.get_errors() if r.severity.value == "critical"]
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Pattern validation failed with critical security issues: {'; '.join(critical_errors)}"
+                )
+            
+            # SECURITY: Pattern security validation (ReDoS protection)
+            security_result = pattern_tester.validate_pattern_security(update_data.regex_pattern)
+            if not security_result['is_valid']:
+                risk_score = security_result.get('risk_score', 0)
+                if risk_score >= 0.7:  # High/Critical risk
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Pattern rejected due to security risk (score: {risk_score:.2f}): {security_result['message']}"
+                    )
 
         # Check for name conflicts
         if update_data.name:
-            existing = pattern_repo.get_pattern_by_name(update_data.name)
-            if existing and existing.id != pattern_id:
+            existing_by_name = pattern_repo.get_pattern_by_name(update_data.name)
+            if existing_by_name and existing_by_name.id != pattern_id:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Pattern with name '{update_data.name}' already exists",
@@ -305,6 +454,99 @@ async def delete_pattern(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to delete pattern: {str(e)}"
+        )
+
+
+# Pattern validation endpoints
+@router.post("/validate", response_model=Dict[str, Any])
+async def validate_pattern_security(
+    validation_data: PatternValidationRequest,
+    validation_service: PatternValidationService = Depends(get_pattern_validation_service),
+    pattern_tester: PatternTester = Depends(get_pattern_tester),
+):
+    """
+    Comprehensive pattern validation with security checks and ReDoS protection
+    
+    This endpoint validates regex patterns for:
+    - Syntax correctness
+    - Security vulnerabilities (ReDoS attacks)
+    - Performance issues
+    - Pattern quality and best practices
+    - Field mapping consistency
+    """
+    try:
+        # Convert to dict for validation
+        pattern_dict = validation_data.dict()
+        
+        # Comprehensive pattern validation
+        validation_report = validation_service.validate_pattern(
+            pattern_dict, 
+            test_filenames=validation_data.test_filenames
+        )
+        
+        # Security validation with ReDoS protection
+        security_result = pattern_tester.validate_pattern_security(validation_data.regex_pattern)
+        
+        # Comprehensive testing if test filenames provided
+        test_results = None
+        if validation_data.test_filenames:
+            test_results = pattern_tester.test_pattern_comprehensively(
+                pattern_dict, 
+                validation_data.test_filenames
+            )
+        
+        # Compile detailed response
+        response = {
+            # Basic validation info
+            'is_valid': validation_report.is_valid and security_result['is_valid'],
+            'validation_score': validation_report.score,
+            
+            # Security information
+            'security': {
+                'is_secure': security_result['is_valid'],
+                'risk_score': security_result.get('risk_score', 0),
+                'risk_level': 'low' if security_result.get('risk_score', 0) < 0.3 
+                             else 'medium' if security_result.get('risk_score', 0) < 0.7 
+                             else 'high',
+                'message': security_result['message'],
+                'recommendations': security_result.get('recommendations', [])
+            },
+            
+            # Validation details
+            'validation_details': {
+                'errors': [
+                    {
+                        'severity': result.severity.value,
+                        'message': result.message,
+                        'field': result.field,
+                        'suggestion': result.suggestion,
+                        'code': result.code
+                    }
+                    for result in validation_report.results
+                ],
+                'has_critical_issues': validation_report.has_critical_issues(),
+                'error_count': len(validation_report.get_errors()),
+                'warning_count': len(validation_report.get_warnings())
+            },
+            
+            # Performance and test results
+            'test_results': test_results if test_results else None,
+            
+            # Recommendations
+            'recommendations': pattern_tester.get_validation_recommendations(validation_report),
+            
+            # Pattern suggestions
+            'pattern_suggestions': validation_service.suggest_pattern_for_filenames(
+                validation_data.test_filenames or []
+            ) if validation_data.test_filenames else None
+        }
+        
+        return response
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Pattern validation failed: {str(e)}"
         )
 
 
@@ -627,4 +869,187 @@ async def get_active_patterns(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to get active patterns: {str(e)}"
+        )
+
+
+# Pattern analysis endpoints for auto file selection
+@router.post("/{pattern_id}/analyze-files", response_model=PatternAnalysisResponse)
+async def analyze_pattern_effectiveness(
+    pattern_id: int = Path(..., description="Pattern ID to analyze"),
+    request: PatternAnalysisRequest = PatternAnalysisRequest(),
+    pattern_service: PatternExtractionService = Depends(get_pattern_service),
+    pattern_repo: PatternRepository = Depends(get_pattern_repository),
+):
+    """
+    Analyze files to find best matches for a specific pattern
+    Returns files ranked by extraction potential for auto file selection
+    """
+    import time
+    start_time = time.perf_counter()
+    
+    try:
+        # Get the pattern
+        pattern = pattern_repo.get_pattern_by_id(pattern_id)
+        if not pattern:
+            raise HTTPException(status_code=404, detail="Pattern not found")
+
+        # Analyze pattern effectiveness across files
+        analysis_result = await pattern_service.analyze_pattern_effectiveness_for_files(
+            pattern_id=pattern_id,
+            file_filters=request.file_filters,
+            limit=request.limit,
+            quality_threshold=request.quality_threshold,
+            exclude_previously_selected=request.exclude_previously_selected,
+            force_include_all=request.force_include_all
+        )
+        
+        execution_time = int((time.perf_counter() - start_time) * 1000)
+        
+        # Convert to response format
+        ranked_files = [
+            FileExtractionScore(
+                file_id=file_data["file_id"],
+                filename=file_data["filename"],
+                full_path=file_data["full_path"],
+                extraction_score=file_data["extraction_score"],
+                extracted_fields=file_data["extracted_fields"],
+                potential_data=file_data["potential_data"],
+                confidence=file_data["confidence"]
+            )
+            for file_data in analysis_result["ranked_files"]
+        ]
+        
+        return PatternAnalysisResponse(
+            pattern_id=pattern_id,
+            pattern_name=pattern.name,
+            analyzed_files=analysis_result["analyzed_files"],
+            ranked_files=ranked_files,
+            recommendations=analysis_result["recommendations"],
+            execution_time_ms=execution_time
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to analyze pattern effectiveness: {str(e)}"
+        )
+
+
+@router.get("/{pattern_id}/optimal-files")
+async def get_optimal_files_for_pattern(
+    pattern_id: int = Path(..., description="Pattern ID"),
+    count: int = Query(20, ge=1, le=100, description="Number of optimal files to return"),
+    pattern_service: PatternExtractionService = Depends(get_pattern_service),
+    pattern_repo: PatternRepository = Depends(get_pattern_repository),
+):
+    """
+    Get optimal files for a specific pattern (quick version of analysis)
+    """
+    try:
+        # Get the pattern
+        pattern = pattern_repo.get_pattern_by_id(pattern_id)
+        if not pattern:
+            raise HTTPException(status_code=404, detail="Pattern not found")
+
+        # Get optimal files with default settings
+        result = await pattern_service.analyze_pattern_effectiveness_for_files(
+            pattern_id=pattern_id,
+            file_filters={},
+            limit=count * 3,  # Analyze more to get best results
+            quality_threshold=80  # Higher threshold for "optimal"
+        )
+        
+        # Return only the top files
+        optimal_files = result["ranked_files"][:count]
+        
+        return {
+            "pattern_id": pattern_id,
+            "pattern_name": pattern.name,
+            "optimal_files": optimal_files,
+            "total_analyzed": result["analyzed_files"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get optimal files: {str(e)}"
+        )
+
+
+# Selection history management endpoints
+@router.post("/{pattern_id}/record-selection", response_model=Dict[str, Any])
+async def record_pattern_selection(
+    request: PatternSelectionRequest,
+    pattern_id: int = Path(..., description="Pattern ID"),
+    pattern_service: PatternExtractionService = Depends(get_pattern_service),
+):
+    """
+    Record files that were auto-selected for a pattern
+    """
+    try:
+        result = pattern_service.record_pattern_selection(
+            pattern_id=pattern_id,
+            file_ids=request.file_ids,
+            selection_context=request.selection_context
+        )
+        return result
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to record selection: {str(e)}"
+        )
+
+
+@router.delete("/{pattern_id}/reset-selections", response_model=Dict[str, Any])
+async def reset_pattern_selections(
+    pattern_id: int = Path(..., description="Pattern ID to reset"),
+    pattern_service: PatternExtractionService = Depends(get_pattern_service),
+):
+    """
+    Reset selection history for a specific pattern
+    """
+    try:
+        result = pattern_service.reset_pattern_selections(pattern_id)
+        return result
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to reset pattern selections: {str(e)}"
+        )
+
+
+@router.delete("/reset-all-selections", response_model=Dict[str, Any])
+async def reset_all_selections(
+    pattern_service: PatternExtractionService = Depends(get_pattern_service),
+):
+    """
+    Reset all selection history for all patterns
+    """
+    try:
+        result = pattern_service.reset_all_selections()
+        return result
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to reset all selections: {str(e)}"
+        )
+
+
+@router.get("/{pattern_id}/selection-history", response_model=Dict[str, Any])
+async def get_pattern_selection_history(
+    pattern_id: int = Path(..., description="Pattern ID"),
+    pattern_service: PatternExtractionService = Depends(get_pattern_service),
+):
+    """
+    Get selection history and statistics for a specific pattern
+    """
+    try:
+        result = pattern_service.get_pattern_selection_history(pattern_id)
+        return result
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get selection history: {str(e)}"
         )

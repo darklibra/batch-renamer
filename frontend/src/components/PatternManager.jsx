@@ -217,7 +217,9 @@ const PatternFormDialog = ({ open, onClose, pattern, onSave }) => {
         is_active: true
     });
     const [validation, setValidation] = useState(null);
+    const [securityValidation, setSecurityValidation] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [validatingPattern, setValidatingPattern] = useState(false);
     // Using imported notification system
 
     useEffect(() => {
@@ -243,6 +245,7 @@ const PatternFormDialog = ({ open, onClose, pattern, onSave }) => {
             });
         }
         setValidation(null);
+        setSecurityValidation(null);
     }, [pattern, open]);
 
     const validatePattern = () => {
@@ -280,9 +283,86 @@ const PatternFormDialog = ({ open, onClose, pattern, onSave }) => {
         return errors.length === 0;
     };
 
+    const validatePatternSecurity = async (showNotifications = true) => {
+        if (!formData.regex_pattern || !formData.name) {
+            return null;
+        }
+
+        setValidatingPattern(true);
+        try {
+            const patternData = {
+                name: formData.name,
+                regex_pattern: formData.regex_pattern,
+                field_mapping: typeof formData.field_mapping === 'string' 
+                    ? JSON.parse(formData.field_mapping) 
+                    : formData.field_mapping,
+                priority: formData.priority
+            };
+
+            const securityResult = await dataProvider.validatePatternSecurity(patternData);
+            setSecurityValidation(securityResult);
+
+            // Show notifications for security issues
+            if (showNotifications && securityResult && !securityResult.is_valid) {
+                const riskLevel = securityResult.security?.risk_level || 'unknown';
+                const message = securityResult.security?.message || 'Pattern has security issues';
+                
+                if (riskLevel === 'high') {
+                    notify(`🚨 High Security Risk: ${message}`, { type: 'error' });
+                } else if (riskLevel === 'medium') {
+                    notify(`⚠️ Security Warning: ${message}`, { type: 'warning' });
+                } else {
+                    notify(`ℹ️ Security Info: ${message}`, { type: 'info' });
+                }
+            }
+
+            return securityResult;
+        } catch (error) {
+            console.error('Security validation failed:', error);
+            if (showNotifications) {
+                notify(`보안 검증 실패: ${error.message}`, { type: 'error' });
+            }
+            setSecurityValidation({
+                is_valid: false,
+                security: { 
+                    is_secure: false, 
+                    risk_level: 'unknown',
+                    message: 'Security validation failed',
+                    recommendations: ['Please check pattern syntax and try again']
+                }
+            });
+            return null;
+        } finally {
+            setValidatingPattern(false);
+        }
+    };
+
     const handleSave = async () => {
         if (!validatePattern()) {
             return;
+        }
+
+        // SECURITY: Validate pattern security before saving
+        const securityResult = await validatePatternSecurity(false); // Don't show notifications here
+        if (securityResult && !securityResult.is_valid) {
+            const riskLevel = securityResult.security?.risk_level || 'unknown';
+            const riskScore = securityResult.security?.risk_score || 0;
+            
+            // Block high-risk patterns
+            if (riskLevel === 'high' || riskScore >= 0.7) {
+                notify(`🚨 패턴이 보안 위험으로 인해 차단되었습니다: ${securityResult.security?.message}`, { type: 'error' });
+                return;
+            }
+            
+            // Warn about medium-risk patterns
+            if (riskLevel === 'medium' || riskScore >= 0.3) {
+                const proceed = window.confirm(
+                    `⚠️ 보안 경고: ${securityResult.security?.message}\n\n계속 진행하시겠습니까?`
+                );
+                if (!proceed) {
+                    return;
+                }
+            }
         }
 
         setLoading(true);
@@ -312,6 +392,17 @@ const PatternFormDialog = ({ open, onClose, pattern, onSave }) => {
     const handleFieldChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
         setValidation(null);
+        
+        // Real-time security validation for regex pattern
+        if (field === 'regex_pattern' && value && value.length > 3) {
+            // Debounced security validation (after user stops typing for 1 second)
+            const timeoutId = setTimeout(() => {
+                validatePatternSecurity(false);
+            }, 1000);
+            
+            // Clear previous timeout if user is still typing
+            return () => clearTimeout(timeoutId);
+        }
     };
 
     return (
@@ -401,6 +492,82 @@ const PatternFormDialog = ({ open, onClose, pattern, onSave }) => {
                             </ul>
                         </Alert>
                     )}
+
+                    {/* Security Validation Display */}
+                    {validatingPattern && (
+                        <Alert severity="info" icon={<Science />}>
+                            <Typography variant="body2">
+                                🔍 Validating pattern security...
+                            </Typography>
+                        </Alert>
+                    )}
+
+                    {securityValidation && !validatingPattern && (
+                        <Alert 
+                            severity={
+                                securityValidation.security?.risk_level === 'high' ? 'error' :
+                                securityValidation.security?.risk_level === 'medium' ? 'warning' :
+                                securityValidation.is_valid ? 'success' : 'info'
+                            }
+                            icon={
+                                securityValidation.security?.risk_level === 'high' ? <ErrorIcon /> :
+                                securityValidation.security?.risk_level === 'medium' ? <Warning /> :
+                                securityValidation.is_valid ? <CheckCircle /> : <Info />
+                            }
+                        >
+                            <Typography variant="body2" gutterBottom>
+                                <strong>Security Validation Results:</strong>
+                            </Typography>
+                            
+                            <Typography variant="body2" gutterBottom>
+                                🛡️ Security Status: {securityValidation.is_valid ? '✅ Safe' : '⚠️ Issues Found'}
+                                {securityValidation.security?.risk_score && (
+                                    <span> (Risk Score: {(securityValidation.security.risk_score * 100).toFixed(0)}%)</span>
+                                )}
+                            </Typography>
+                            
+                            <Typography variant="body2" gutterBottom>
+                                📊 Quality Score: {securityValidation.validation_score || 0}/100
+                            </Typography>
+
+                            <Typography variant="body2" gutterBottom>
+                                💬 {securityValidation.security?.message || 'No security issues detected'}
+                            </Typography>
+
+                            {securityValidation.security?.recommendations && securityValidation.security.recommendations.length > 0 && (
+                                <Box sx={{ mt: 1 }}>
+                                    <Typography variant="body2" fontWeight="bold">
+                                        💡 Recommendations:
+                                    </Typography>
+                                    <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+                                        {securityValidation.security.recommendations.map((rec, index) => (
+                                            <li key={index}>
+                                                <Typography variant="body2">{rec}</Typography>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </Box>
+                            )}
+
+                            {securityValidation.validation_details?.errors && securityValidation.validation_details.errors.length > 0 && (
+                                <Box sx={{ mt: 1 }}>
+                                    <Typography variant="body2" fontWeight="bold">
+                                        🔧 Pattern Issues:
+                                    </Typography>
+                                    <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+                                        {securityValidation.validation_details.errors
+                                            .filter(err => err.severity === 'error' || err.severity === 'critical')
+                                            .slice(0, 3)
+                                            .map((error, index) => (
+                                            <li key={index}>
+                                                <Typography variant="body2">{error.message}</Typography>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </Box>
+                            )}
+                        </Alert>
+                    )}
                 </Box>
             </DialogContent>
 
@@ -409,9 +576,17 @@ const PatternFormDialog = ({ open, onClose, pattern, onSave }) => {
                     Cancel
                 </Button>
                 <Button 
+                    onClick={() => validatePatternSecurity(true)} 
+                    startIcon={<Security />}
+                    disabled={loading || validatingPattern || !formData.regex_pattern}
+                    sx={{ mr: 1 }}
+                >
+                    {validatingPattern ? 'Validating...' : 'Security Check'}
+                </Button>
+                <Button 
                     onClick={handleSave} 
                     variant="contained"
-                    disabled={loading}
+                    disabled={loading || validatingPattern}
                 >
                     {loading ? 'Saving...' : (pattern ? 'Update' : 'Create')}
                 </Button>

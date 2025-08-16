@@ -251,18 +251,43 @@ const customDataProvider = {
                 data: data,
             }));
     },
-    indexFiles: (directoryPath) => {
+    indexFiles: (directoryPath, scanConfig = {}) => {
+        // Prepare the request body with scan configuration
+        const requestBody = {
+            directory_path: directoryPath,
+            file_extensions: scanConfig.file_extensions || null,
+            max_file_size_mb: scanConfig.max_file_size_mb || 100,
+            max_files: scanConfig.max_files || 10000,
+            recursion_depth: scanConfig.recursion_depth || 5
+        };
+
         return fetch(`${apiUrl}/files/index`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ directory_path: directoryPath }),
+            body: JSON.stringify(requestBody),
         })
         .then(response => {
             if (!response.ok) {
                 return response.json().then(error => {
                     throw new Error(error.detail || 'An error occurred during indexing.');
+                });
+            }
+            return response.json();
+        });
+    },
+    getJobProgress: (jobId) => {
+        return fetch(`${apiUrl}/files/index/${jobId}/progress`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to get job progress');
                 });
             }
             return response.json();
@@ -319,6 +344,330 @@ const customDataProvider = {
             return response.json();
         });
     },
+    
+    // ========================================
+    // METADATA EXTRACTION API FUNCTIONS
+    // ========================================
+    
+    // Extract metadata from a single file using patterns
+    extractFileMetadata: (fileId, options = {}) => {
+        const { forceReapply = false, patternIds = null } = options;
+        const queryParams = new URLSearchParams();
+        if (forceReapply) queryParams.append('force_reapply', 'true');
+        
+        const url = patternIds 
+            ? `${apiUrl}/files/${fileId}/extract-metadata?${queryParams.toString()}`
+            : `${apiUrl}/files/${fileId}/extract-metadata?${queryParams.toString()}`;
+            
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: patternIds ? JSON.stringify({ pattern_ids: patternIds }) : null
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'An error occurred during metadata extraction.');
+                });
+            }
+            return response.json();
+        });
+    },
+    
+    // Get extracted metadata for a file
+    getFileExtractedData: (fileId, includeHistory = false) => {
+        const queryParams = new URLSearchParams();
+        if (includeHistory) queryParams.append('include_history', 'true');
+        
+        return fetch(`${apiUrl}/files/${fileId}/extracted-data?${queryParams.toString()}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to get extracted data.');
+                });
+            }
+            return response.json();
+        });
+    },
+    
+    // Start batch metadata extraction for multiple files
+    batchExtractMetadata: (fileIds, options = {}) => {
+        const { forceReapply = false, patternIds = null } = options;
+        const queryParams = new URLSearchParams();
+        if (forceReapply) queryParams.append('force_reapply', 'true');
+        if (patternIds) {
+            patternIds.forEach(id => queryParams.append('pattern_ids', id.toString()));
+        }
+        
+        return fetch(`${apiUrl}/files/batch-extract-metadata?${queryParams.toString()}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(fileIds)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to start batch metadata extraction.');
+                });
+            }
+            return response.json();
+        });
+    },
+    
+    // Get extraction job status and progress
+    getExtractionJobStatus: (jobId) => {
+        return fetch(`${apiUrl}/jobs/${jobId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to get job status.');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Smart File Management API functions
+    
+    // Validate filename template
+    // Pattern Security Validation
+    validatePatternSecurity: (patternData) => {
+        return fetch(`${apiUrl}/patterns/validate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: patternData.name,
+                regex_pattern: patternData.regex_pattern,
+                field_mapping: patternData.field_mapping,
+                priority: patternData.priority || 1,
+                test_filenames: patternData.test_filenames || []
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Pattern validation failed');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    validateFilenameTemplate: (template, sampleFileId = null, patternId = null) => {
+        const params = new URLSearchParams({ template });
+        if (sampleFileId) {
+            params.append('sample_file_id', sampleFileId);
+        }
+        if (patternId) {
+            params.append('pattern_id', patternId);
+        }
+        
+        return fetch(`${apiUrl}/files/validate-template?${params}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Template validation failed.');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Preview filename template
+    previewFilenameTemplate: (fileIds, template, patternId = null) => {
+        const requestBody = {
+            file_ids: fileIds,
+            filename_template: template
+        };
+        
+        if (patternId !== null) {
+            requestBody.pattern_id = patternId;
+        }
+        
+        return fetch(`${apiUrl}/files/preview-rename`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Preview generation failed.');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Get available patterns for file
+    getAvailablePatternsForFile: (fileId) => {
+        return fetch(`${apiUrl}/files/patterns-for-file/${fileId}`)
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to get patterns for file.');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Apply pattern to files
+    applyPatternToFiles: (fileIds, patternId) => {
+        return fetch(`${apiUrl}/files/apply-pattern`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                file_ids: fileIds,
+                pattern_id: patternId
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to apply pattern.');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Start smart copy operation
+    startSmartCopy: (operationData) => {
+        const params = new URLSearchParams({
+            target_directory: operationData.target_directory,
+            filename_template: operationData.filename_template,
+            conflict_resolution: operationData.conflict_resolution || 'skip',
+            create_backup: operationData.create_backup || false
+        });
+
+        // Add pattern_id if provided
+        if (operationData.pattern_id) {
+            params.append('pattern_id', operationData.pattern_id);
+        }
+
+        // Add file_ids as multiple query parameters
+        operationData.file_ids.forEach(id => {
+            params.append('file_ids', id);
+        });
+
+        return fetch(`${apiUrl}/files/smart-copy?${params}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Smart copy failed.');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Start smart move operation
+    startSmartMove: (operationData) => {
+        const params = new URLSearchParams({
+            target_directory: operationData.target_directory,
+            filename_template: operationData.filename_template,
+            conflict_resolution: operationData.conflict_resolution || 'skip',
+            create_backup: operationData.create_backup || false
+        });
+
+        // Add pattern_id if provided
+        if (operationData.pattern_id) {
+            params.append('pattern_id', operationData.pattern_id);
+        }
+
+        // Add file_ids as multiple query parameters
+        operationData.file_ids.forEach(id => {
+            params.append('file_ids', id);
+        });
+
+        return fetch(`${apiUrl}/files/smart-move?${params}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Smart move failed.');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Get smart operation status
+    getSmartOperationStatus: (jobId) => {
+        return fetch(`${apiUrl}/files/smart-operations/${jobId}`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.detail || 'Failed to get operation status.');
+                    });
+                }
+                return response.json();
+            });
+    },
+
+    // Cancel smart operation
+    cancelSmartOperation: (jobId) => {
+        return fetch(`${apiUrl}/files/smart-operations/${jobId}/cancel`, {
+            method: 'POST'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to cancel operation.');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Get smart operation history
+    getSmartOperationHistory: (limit = 10) => {
+        const params = new URLSearchParams({ limit });
+        
+        return fetch(`${apiUrl}/files/smart-operations?${params}`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.detail || 'Failed to get operation history.');
+                    });
+                }
+                return response.json();
+            });
+    },
+    
     getRegexVariables: (regexPattern) => {
         return fetch(`${apiUrl}/file-change-patterns/regex-variables?regex_pattern=${encodeURIComponent(regexPattern)}`, {
             method: 'POST',
@@ -686,6 +1035,162 @@ const customDataProvider = {
                 return response.json();
             });
     },
+
+    // ===========================================
+    // PATTERN ANALYSIS API METHODS FOR AUTO FILE SELECTION
+    // ===========================================
+
+    // Analyze pattern effectiveness for auto file selection
+    analyzePatternEffectiveness: (patternId, options = {}) => {
+        const requestBody = {
+            file_filters: options.filters || {},
+            limit: options.limit || 100,
+            quality_threshold: options.threshold || 70,
+            exclude_previously_selected: options.excludePrevious !== undefined ? options.excludePrevious : true,
+            force_include_all: options.forceIncludeAll || false
+        };
+        
+        return fetch(`${apiUrl}/patterns/${patternId}/analyze-files`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Pattern analysis failed');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Get optimal files for a pattern (quick version)
+    getOptimalFilesForPattern: (patternId, count = 20) => {
+        return fetch(`${apiUrl}/patterns/${patternId}/optimal-files?count=${count}`)
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to get optimal files');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Auto-select files based on pattern analysis
+    autoSelectFilesForPattern: async (patternId, options = {}) => {
+        try {
+            const analysisResult = await customDataProvider.analyzePatternEffectiveness(
+                patternId, 
+                {
+                    threshold: options.qualityThreshold || 70,
+                    limit: options.limit || 100,
+                    filters: options.filters || {},
+                    excludePrevious: options.excludePrevious !== undefined ? options.excludePrevious : true,
+                    forceIncludeAll: options.forceIncludeAll || false
+                }
+            );
+            
+            // Filter and select optimal files
+            const qualityThreshold = options.qualityThreshold || 70;
+            const maxFiles = options.maxFiles || analysisResult.recommendations.optimal_file_count;
+            
+            const selectedFiles = analysisResult.ranked_files
+                .filter(file => file.extraction_score >= qualityThreshold)
+                .slice(0, maxFiles)
+                .map(file => ({
+                    id: file.file_id,
+                    filename: file.filename,
+                    extraction_score: file.extraction_score,
+                    extracted_fields: file.extracted_fields,
+                    confidence: file.confidence,
+                    potential_data: file.potential_data
+                }));
+                
+            return {
+                selected_files: selectedFiles,
+                analysis: analysisResult,
+                selection_criteria: {
+                    quality_threshold: qualityThreshold,
+                    max_files: maxFiles,
+                    total_analyzed: analysisResult.analyzed_files
+                }
+            };
+            
+        } catch (error) {
+            throw new Error(`Auto file selection failed: ${error.message}`);
+        }
+    },
+
+    // ===========================================
+    // SELECTION HISTORY MANAGEMENT API METHODS
+    // ===========================================
+
+    // Record files that were auto-selected for a pattern
+    recordPatternSelection: (patternId, fileIds, selectionContext = {}) => {
+        const requestBody = {
+            file_ids: fileIds,
+            selection_context: selectionContext
+        };
+        
+        return fetch(`${apiUrl}/patterns/${patternId}/record-selection`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to record selection');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Reset selection history for a specific pattern
+    resetPatternSelections: (patternId) => {
+        return fetch(`${apiUrl}/patterns/${patternId}/reset-selections`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to reset pattern selections');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Reset all selection history for all patterns
+    resetAllSelections: () => {
+        return fetch(`${apiUrl}/patterns/reset-all-selections`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to reset all selections');
+                });
+            }
+            return response.json();
+        });
+    },
+
+    // Get selection history for a pattern
+    getPatternSelectionHistory: (patternId) => {
+        return fetch(`${apiUrl}/patterns/${patternId}/selection-history`)
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Failed to get selection history');
+                });
+            }
+            return response.json();
+        });
+    }
 };
 
 export default customDataProvider;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box, Card, CardContent, CardActions, Typography, Button, TextField,
     Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
@@ -213,12 +214,31 @@ const ScanConfiguration = ({ config, onChange }) => {
                             )}
                         >
                             <MenuItem value="txt">Text Files (.txt)</MenuItem>
+                            <MenuItem value="epub">Epub Files (.epub)</MenuItem>
                             <MenuItem value="pdf">PDF Files (.pdf)</MenuItem>
-                            <MenuItem value="doc">Word Documents (.doc)</MenuItem>
+                            <MenuItem value="doc">Word Documents (.doc, .docx)</MenuItem>
+                            <MenuItem value="docx">Word Documents (.docx)</MenuItem>
+                            <MenuItem value="xls">Excel Files (.xls)</MenuItem>
+                            <MenuItem value="xlsx">Excel Files (.xlsx)</MenuItem>
+                            <MenuItem value="ppt">PowerPoint (.ppt, .pptx)</MenuItem>
                             <MenuItem value="jpg">JPEG Images (.jpg)</MenuItem>
+                            <MenuItem value="jpeg">JPEG Images (.jpeg)</MenuItem>
                             <MenuItem value="png">PNG Images (.png)</MenuItem>
-                            <MenuItem value="mp4">Video Files (.mp4)</MenuItem>
-                            <MenuItem value="mp3">Audio Files (.mp3)</MenuItem>
+                            <MenuItem value="gif">GIF Images (.gif)</MenuItem>
+                            <MenuItem value="bmp">Bitmap Images (.bmp)</MenuItem>
+                            <MenuItem value="mp4">MP4 Videos (.mp4)</MenuItem>
+                            <MenuItem value="avi">AVI Videos (.avi)</MenuItem>
+                            <MenuItem value="mov">QuickTime (.mov)</MenuItem>
+                            <MenuItem value="wmv">Windows Media (.wmv)</MenuItem>
+                            <MenuItem value="mp3">MP3 Audio (.mp3)</MenuItem>
+                            <MenuItem value="wav">WAV Audio (.wav)</MenuItem>
+                            <MenuItem value="flac">FLAC Audio (.flac)</MenuItem>
+                            <MenuItem value="js">JavaScript (.js)</MenuItem>
+                            <MenuItem value="py">Python (.py)</MenuItem>
+                            <MenuItem value="java">Java (.java)</MenuItem>
+                            <MenuItem value="cpp">C++ (.cpp)</MenuItem>
+                            <MenuItem value="html">HTML (.html)</MenuItem>
+                            <MenuItem value="css">CSS (.css)</MenuItem>
                         </Select>
                     </FormControl>
 
@@ -253,11 +273,12 @@ const ScanConfiguration = ({ config, onChange }) => {
                                 recursion_depth: e.target.value
                             })}
                         >
-                            <MenuItem value={1}>Current Directory Only</MenuItem>
-                            <MenuItem value={2}>1 Level Deep</MenuItem>
-                            <MenuItem value={3}>2 Levels Deep</MenuItem>
-                            <MenuItem value={5}>5 Levels Deep</MenuItem>
-                            <MenuItem value={-1}>Unlimited (All Subdirectories)</MenuItem>
+                            <MenuItem value={1}>현재 디렉토리만 (빠름)</MenuItem>
+                            <MenuItem value={2}>1단계 하위까지 (빠름)</MenuItem>
+                            <MenuItem value={3}>2단계 하위까지 (보통)</MenuItem>
+                            <MenuItem value={5}>5단계 하위까지 (권장)</MenuItem>
+                            <MenuItem value={10}>10단계 하위까지 (느림)</MenuItem>
+                            <MenuItem value={-1}>무제한 (모든 하위 디렉토리, 매우 느림)</MenuItem>
                         </Select>
                     </FormControl>
                 </Box>
@@ -296,7 +317,18 @@ const ScanResults = ({ results, onViewFiles }) => {
                             {results.files_indexed || 0}
                         </Typography>
                         <Typography variant="body2">
-                            Successfully Indexed
+                            New Files Indexed
+                        </Typography>
+                    </CardContent>
+                </Card>
+
+                <Card sx={{ minWidth: 120 }}>
+                    <CardContent sx={{ textAlign: 'center', py: 1 }}>
+                        <Typography variant="h4" color="info.main">
+                            {results.already_indexed || 0}
+                        </Typography>
+                        <Typography variant="body2">
+                            Already Indexed
                         </Typography>
                     </CardContent>
                 </Card>
@@ -384,6 +416,7 @@ const ScanResults = ({ results, onViewFiles }) => {
 // MAIN FILE SCANNER COMPONENT
 // ===========================================
 const FileScanner = ({ onScanComplete }) => {
+    const navigate = useNavigate();
     const [selectedDirectory, setSelectedDirectory] = useState('');
     const [scanConfig, setScanConfig] = useState({
         file_extensions: ['txt', 'pdf', 'doc'],
@@ -399,8 +432,122 @@ const FileScanner = ({ onScanComplete }) => {
         files_indexed: 0,
         errors: 0
     });
+    const [currentJobId, setCurrentJobId] = useState(null);
+    const [pollingInterval, setPollingInterval] = useState(null);
     
     // Using imported notification system
+
+    // Phase 3: 진행률 계산 로직
+    const calculateProgress = (jobData) => {
+        if (!jobData) return 0;
+
+        switch (jobData.status) {
+            case 'started':
+                return 5;
+            case 'processing':
+                if (jobData.stage === 'discovery') {
+                    return Math.min(30, 5 + (jobData.processed_count / Math.max(jobData.processed_count || 1, 100)) * 25);
+                } else if (jobData.stage === 'checking_existing') {
+                    return 35;
+                } else if (jobData.stage === 'indexing') {
+                    const indexingProgress = jobData.total_count > 0 ? 
+                        (jobData.processed_count / jobData.total_count) * 55 : 0;
+                    return 40 + indexingProgress;
+                }
+                return 10;
+            case 'completed':
+                return 100;
+            case 'error':
+                return 0;
+            default:
+                return 0;
+        }
+    };
+
+    // Phase 4: UI 상태 메시지 개선
+    const getStatusMessage = (jobData) => {
+        if (!jobData) return 'Initializing...';
+
+        switch (jobData.stage) {
+            case 'initializing':
+                return 'Initializing scan...';
+            case 'discovery':
+                return `Discovering files... (${jobData.processed_count || 0} found)`;
+            case 'checking_existing':
+                return 'Checking existing files...';
+            case 'indexing':
+                return `Indexing files... (${jobData.processed_count || 0}/${jobData.total_count || 0})`;
+            case 'complete':
+                return 'Scan completed!';
+            case 'error':
+                return 'Scan failed';
+            default:
+                return 'Processing...';
+        }
+    };
+
+    // 실시간 상태 폴링 함수
+    const pollJobProgress = async (jobId) => {
+        try {
+            const jobData = await dataProvider.getJobProgress(jobId);
+            
+            // 진행률 및 상태 업데이트
+            const progress = calculateProgress(jobData);
+            setScanProgress({
+                percentage: progress,
+                current_file: getStatusMessage(jobData)
+            });
+
+            // 통계 업데이트
+            setScanStats({
+                files_scanned: jobData.processed_count || 0,
+                files_indexed: jobData.newly_indexed || 0,
+                errors: 0 // 에러 카운트는 필요시 백엔드에서 추가
+            });
+
+            // 완료 상태 확인
+            if (jobData.status === 'completed') {
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    setPollingInterval(null);
+                }
+                setIsScanning(false);
+                setScanProgress(null);
+                
+                // Map backend result_data to frontend expectations
+                const mappedResults = {
+                    // The backend now provides these fields directly in result_data
+                    total_files_found: jobData.result_data?.total_files_found || jobData.result_data?.total_discovered || 0,
+                    files_indexed: jobData.result_data?.files_indexed || jobData.result_data?.newly_indexed || 0,
+                    already_indexed: jobData.result_data?.already_indexed || 0,
+                    processing_time_seconds: jobData.result_data?.processing_time_seconds || 0,
+                    file_type_summary: jobData.result_data?.file_type_summary || {},
+                    errors: jobData.result_data?.errors || 0,
+                    error_details: jobData.result_data?.error_details || []
+                };
+                
+                setScanResults(mappedResults);
+                setCurrentJobId(null);
+                notify('파일 스캔이 완료되었습니다.', { type: 'success' });
+                
+                if (onScanComplete) {
+                    onScanComplete(mappedResults);
+                }
+            } else if (jobData.status === 'error') {
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    setPollingInterval(null);
+                }
+                setIsScanning(false);
+                setScanProgress(null);
+                setCurrentJobId(null);
+                notify(`스캔 실패: ${jobData.error_message || 'Unknown error'}`, { type: 'error' });
+            }
+        } catch (error) {
+            console.error('Progress polling failed:', error);
+            // 네트워크 오류는 계속 재시도
+        }
+    };
 
     const startScan = async () => {
         if (!selectedDirectory) {
@@ -408,58 +555,68 @@ const FileScanner = ({ onScanComplete }) => {
             return;
         }
 
+        // 이전 폴링 정리
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            setPollingInterval(null);
+        }
+
         setIsScanning(true);
-        setScanProgress({ percentage: 0, current_file: null });
+        setScanProgress({ percentage: 0, current_file: 'Initializing scan...' });
         setScanResults(null);
         setScanStats({ files_scanned: 0, files_indexed: 0, errors: 0 });
 
         try {
+            // 스캔 시작 요청
             const result = await dataProvider.indexFiles(selectedDirectory, scanConfig);
+            const jobId = result.job_id;
+            setCurrentJobId(jobId);
             
-            // Simulate progress updates (replace with actual progress tracking)
-            const simulateProgress = () => {
-                let progress = 0;
-                const interval = setInterval(() => {
-                    progress += Math.random() * 20;
-                    if (progress >= 100) {
-                        progress = 100;
-                        clearInterval(interval);
-                        setIsScanning(false);
-                        setScanProgress(null);
-                        setScanResults(result);
-                        onScanComplete?.(result);
-                        notify('파일 스캔이 완료되었습니다.', { type: 'success' });
-                    }
-                    setScanProgress({
-                        percentage: Math.min(progress, 100),
-                        current_file: `file_${Math.floor(progress)}.txt`
-                    });
-                    setScanStats(prev => ({
-                        files_scanned: Math.floor(progress * 10),
-                        files_indexed: Math.floor(progress * 8),
-                        errors: Math.floor(progress * 0.1)
-                    }));
-                }, 500);
-            };
-
-            simulateProgress();
+            // 실시간 폴링 시작
+            const interval = setInterval(() => {
+                pollJobProgress(jobId);
+            }, 1000); // 1초마다 폴링
+            
+            setPollingInterval(interval);
+            
+            // 첫 번째 상태 확인
+            pollJobProgress(jobId);
             
         } catch (error) {
             setIsScanning(false);
             setScanProgress(null);
+            setCurrentJobId(null);
             notify(`스캔 실패: ${error.message}`, { type: 'error' });
         }
     };
 
     const cancelScan = () => {
+        // 폴링 중지
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            setPollingInterval(null);
+        }
+        
         setIsScanning(false);
         setScanProgress(null);
+        setCurrentJobId(null);
         notify('스캔이 취소되었습니다.', { type: 'info' });
+        
+        // TODO: 백엔드에 잡 취소 요청도 보낼 수 있음
     };
 
+    // 컴포넌트 언마운트 시 정리
+    React.useEffect(() => {
+        return () => {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+        };
+    }, [pollingInterval]);
+
     const handleViewFiles = () => {
-        // Navigate to files list view
-        window.location.href = '#/files';
+        // Navigate to files list view using React Router
+        navigate('/files');
     };
 
     return (

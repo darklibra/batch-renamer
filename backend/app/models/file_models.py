@@ -285,3 +285,47 @@ class IndexingJob(Base):
             'started_at': self.started_at.isoformat() if self.started_at else None,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None
         }
+
+
+class PatternSelectionHistory(Base):
+    """
+    Model for tracking pattern-based auto file selection history
+    Prevents re-selection of the same files with the same pattern
+    """
+    __tablename__ = "pattern_selection_history"
+    
+    id = Column(Integer, primary_key=True)
+    pattern_id = Column(Integer, ForeignKey('patterns.id'), nullable=False)
+    file_id = Column(Integer, ForeignKey('files.id'), nullable=False)
+    selected_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    selection_context = Column(JSON)  # Analysis parameters used during selection
+    is_active = Column(Boolean, default=True, nullable=False)
+    reset_at = Column(DateTime, nullable=True)  # When this selection was reset
+    
+    # Relationships
+    pattern = relationship("ExtractionPattern")
+    file = relationship("IndexedFile")
+    
+    # Indexes for performance
+    __table_args__ = (
+        Index('idx_pattern_selection_pattern_id', 'pattern_id'),
+        Index('idx_pattern_selection_file_id', 'file_id'),
+        Index('idx_pattern_selection_active', 'is_active'),
+        Index('idx_pattern_selection_pattern_active', 'pattern_id', 'is_active'),
+        # Unique constraint to prevent duplicate active selections
+        Index('idx_pattern_selection_unique', 'pattern_id', 'file_id', 'is_active', unique=True)
+    )
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'pattern_id': self.pattern_id,
+            'file_id': self.file_id,
+            'selected_at': self.selected_at.isoformat() if self.selected_at else None,
+            'selection_context': self.selection_context,
+            'is_active': self.is_active,
+            'reset_at': self.reset_at.isoformat() if self.reset_at else None,
+            'pattern_name': self.pattern.name if self.pattern else None,
+            'filename': self.file.filename if self.file else None
+        }

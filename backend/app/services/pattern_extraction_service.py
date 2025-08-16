@@ -31,13 +31,15 @@ class PatternExtractionService:
         pattern_repository: PatternRepository,
         application_repository: PatternApplicationRepository,
         failure_repository: PatternFailureRepository,
-        job_repository: PatternExtractionJobRepository
+        job_repository: PatternExtractionJobRepository,
+        selection_history_repository=None  # Optional for backward compatibility
     ):
         self.file_repo = file_repository
         self.pattern_repo = pattern_repository
         self.application_repo = application_repository
         self.failure_repo = failure_repository
         self.job_repo = job_repository
+        self.selection_history_repo = selection_history_repository
         
         # Initialize optimization components
         self.pattern_cache = get_pattern_cache()
@@ -293,6 +295,33 @@ class PatternExtractionService:
         except Exception as e:
             logger.warning(f"Unexpected error in type conversion: {str(e)}")
             return value
+
+    def apply_pattern_to_file(self, file_obj, pattern) -> Dict[str, Any]:
+        """
+        Apply a specific pattern to a file and return extracted metadata
+        
+        Args:
+            file_obj: IndexedFile object
+            pattern: ExtractionPattern object
+            
+        Returns:
+            Dict with extracted metadata
+            
+        Raises:
+            ValueError: If pattern doesn't match or extraction fails
+        """
+        try:
+            extracted_data, score = self._apply_single_pattern(
+                file_obj.filename, pattern
+            )
+            
+            if not extracted_data:
+                raise ValueError(f"Pattern '{pattern.name}' does not match file '{file_obj.filename}'")
+            
+            return extracted_data
+            
+        except Exception as e:
+            raise ValueError(f"Failed to apply pattern '{pattern.name}' to file '{file_obj.filename}': {str(e)}")
 
     async def extract_metadata_for_file(self, file_id: int, force_reapply: bool = False) -> Dict:
         """
@@ -1004,3 +1033,441 @@ class PatternExtractionService:
         except Exception as e:
             logger.error(f"Failed to generate extraction overview: {str(e)}")
             raise Exception(f"Failed to get extraction overview: {str(e)}")
+
+    async def analyze_pattern_effectiveness_for_files(
+        self,
+        pattern_id: int,
+        file_filters: Dict = None,
+        limit: int = 100,
+        quality_threshold: int = 70,
+        exclude_previously_selected: bool = True,
+        force_include_all: bool = False
+    ) -> Dict:
+        """
+        Analyze files and rank by pattern extraction effectiveness for auto file selection
+        
+        Args:
+            pattern_id: Pattern to analyze
+            file_filters: Optional filters for file selection
+            limit: Maximum number of files to analyze
+            quality_threshold: Minimum quality score for recommendations
+            exclude_previously_selected: Whether to exclude previously selected files
+            force_include_all: Force include all files regardless of history
+            
+        Returns:
+            Dict with ranked files, recommendations, and statistics
+        """
+        import time
+        start_time = time.perf_counter()
+        
+        try:
+            # Get the pattern
+            pattern = self.pattern_repo.get_pattern_by_id(pattern_id)
+            if not pattern:
+                raise ValueError(f"Pattern with ID {pattern_id} not found")
+            
+            # Get files for analysis with filters
+            files_to_analyze = self._get_files_for_analysis(file_filters, limit)
+            
+            if not files_to_analyze:
+                return {
+                    "analyzed_files": 0,
+                    "ranked_files": [],
+                    "recommendations": {
+                        "optimal_file_count": 0,
+                        "quality_threshold": quality_threshold,
+                        "message": "No files found for analysis"
+                    }
+                }
+            
+            # Apply selection history exclusion logic
+            excluded_count = 0
+            if exclude_previously_selected and not force_include_all and self.selection_history_repo:
+                try:
+                    # Get previously selected file IDs for this pattern
+                    previously_selected_ids = self.selection_history_repo.get_previously_selected_files(pattern_id)
+                    
+                    if previously_selected_ids:
+                        # Filter out previously selected files
+                        original_count = len(files_to_analyze)
+                        files_to_analyze = [f for f in files_to_analyze if f.id not in previously_selected_ids]
+                        excluded_count = original_count - len(files_to_analyze)
+                        
+                        logger.info(f"Excluded {excluded_count} previously selected files for pattern {pattern_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to apply selection history exclusion: {str(e)}")
+                    # Continue without exclusion if history lookup fails
+            
+            if not files_to_analyze:
+                return {
+                    "analyzed_files": 0,
+                    "ranked_files": [],
+                    "excluded_files": excluded_count,
+                    "recommendations": {
+                        "optimal_file_count": 0,
+                        "quality_threshold": quality_threshold,
+                        "message": f"No new files to analyze. {excluded_count} files were previously selected." if excluded_count > 0 else "No files found for analysis"
+                    }
+                }
+            
+            # Analyze each file with the pattern
+            scored_files = []
+            total_analyzed = 0
+            
+            for file_obj in files_to_analyze:
+                try:
+                    # Apply pattern and calculate score
+                    extracted_data, extraction_score = self._apply_single_pattern(
+                        file_obj.filename, pattern
+                    )
+                    
+                    # Calculate additional metrics
+                    extracted_fields = len(extracted_data) if extracted_data else 0
+                    
+                    # Calculate confidence based on pattern complexity and match quality
+                    confidence = self._calculate_pattern_confidence(
+                        pattern, file_obj.filename, extracted_data, extraction_score
+                    )
+                    
+                    # Create file score entry
+                    file_score = {
+                        "file_id": file_obj.id,
+                        "filename": file_obj.filename,
+                        "full_path": file_obj.full_path,
+                        "extraction_score": extraction_score * 10,  # Scale to 0-100
+                        "extracted_fields": extracted_fields,
+                        "potential_data": extracted_data or {},
+                        "confidence": confidence
+                    }
+                    
+                    scored_files.append(file_score)
+                    total_analyzed += 1
+                    
+                except Exception as e:
+                    logger.debug(f"Failed to analyze file {file_obj.filename} with pattern {pattern.name}: {str(e)}")
+                    continue
+            
+            # Sort by composite score (extraction_score * confidence)
+            scored_files.sort(
+                key=lambda x: (x["extraction_score"] * x["confidence"]), 
+                reverse=True
+            )
+            
+            # Generate recommendations
+            recommendations = self._generate_file_selection_recommendations(
+                scored_files, quality_threshold
+            )
+            
+            processing_time = time.perf_counter() - start_time
+            logger.info(
+                f"Pattern effectiveness analysis completed: "
+                f"{total_analyzed} files analyzed in {processing_time:.2f}s"
+            )
+            
+            return {
+                "analyzed_files": total_analyzed,
+                "ranked_files": scored_files,
+                "recommendations": recommendations
+            }
+            
+        except Exception as e:
+            logger.error(f"Pattern effectiveness analysis failed: {str(e)}")
+            raise Exception(f"Failed to analyze pattern effectiveness: {str(e)}")
+
+    def _get_files_for_analysis(self, file_filters: Dict = None, limit: int = 100) -> List:
+        """Get files for pattern analysis with optional filters"""
+        try:
+            # Build query filters
+            filters = {}
+            if file_filters:
+                # Apply extension filter
+                if "extensions" in file_filters:
+                    filters["extensions"] = file_filters["extensions"]
+                
+                # Apply path filter  
+                if "path_contains" in file_filters:
+                    filters["path_contains"] = file_filters["path_contains"]
+                
+                # Apply size filter
+                if "min_size" in file_filters or "max_size" in file_filters:
+                    filters["size_range"] = (
+                        file_filters.get("min_size", 0),
+                        file_filters.get("max_size", float('inf'))
+                    )
+            
+            # Get files from repository
+            files = self.file_repo.get_files_paginated(
+                page=1,
+                per_page=limit,
+                filters=filters
+            )
+            
+            return files.get("files", [])
+            
+        except Exception as e:
+            logger.error(f"Failed to get files for analysis: {str(e)}")
+            return []
+
+    def _calculate_pattern_confidence(
+        self, 
+        pattern, 
+        filename: str, 
+        extracted_data: Dict, 
+        extraction_score: int
+    ) -> float:
+        """Calculate confidence score for pattern match"""
+        try:
+            if not extracted_data or extraction_score == 0:
+                return 0.0
+            
+            # Base confidence from extraction success
+            base_confidence = min(extraction_score / len(pattern.field_mapping), 1.0)
+            
+            # Adjust for data quality
+            quality_bonus = 0.0
+            if extracted_data:
+                # Bonus for non-empty values
+                non_empty_fields = sum(1 for v in extracted_data.values() if v and str(v).strip())
+                quality_bonus = (non_empty_fields / len(extracted_data)) * 0.2
+            
+            # Adjust for pattern complexity (simpler patterns get lower confidence)
+            complexity_factor = min(len(pattern.field_mapping) / 5.0, 1.0)
+            
+            # Final confidence calculation
+            confidence = (base_confidence + quality_bonus) * complexity_factor
+            
+            return min(confidence, 1.0)
+            
+        except Exception as e:
+            logger.debug(f"Failed to calculate confidence: {str(e)}")
+            return 0.0
+
+    def _generate_file_selection_recommendations(
+        self, 
+        scored_files: List[Dict], 
+        quality_threshold: int
+    ) -> Dict:
+        """Generate intelligent recommendations for file selection"""
+        try:
+            if not scored_files:
+                return {
+                    "optimal_file_count": 0,
+                    "quality_threshold": quality_threshold,
+                    "message": "No files available for selection"
+                }
+            
+            # Filter files by quality threshold
+            quality_files = [
+                f for f in scored_files 
+                if f["extraction_score"] >= quality_threshold
+            ]
+            
+            # Calculate recommendations
+            total_files = len(scored_files)
+            high_quality_files = len(quality_files)
+            
+            # Recommend optimal count (20-30% of quality files, max 50)
+            optimal_count = min(
+                max(int(high_quality_files * 0.25), 1),
+                50
+            )
+            
+            # Generate quality distribution
+            excellent_files = len([f for f in scored_files if f["extraction_score"] >= 90])
+            good_files = len([f for f in scored_files if 70 <= f["extraction_score"] < 90])
+            poor_files = len([f for f in scored_files if f["extraction_score"] < 70])
+            
+            return {
+                "optimal_file_count": optimal_count,
+                "quality_threshold": quality_threshold,
+                "total_analyzed": total_files,
+                "quality_distribution": {
+                    "excellent": excellent_files,
+                    "good": good_files, 
+                    "poor": poor_files
+                },
+                "recommendation_message": self._get_recommendation_message(
+                    total_files, high_quality_files, optimal_count
+                )
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to generate recommendations: {str(e)}")
+            return {
+                "optimal_file_count": 0,
+                "quality_threshold": quality_threshold,
+                "message": "Failed to generate recommendations"
+            }
+
+    def _get_recommendation_message(
+        self, 
+        total_files: int, 
+        quality_files: int, 
+        optimal_count: int
+    ) -> str:
+        """Generate human-readable recommendation message"""
+        if quality_files == 0:
+            return "No files meet the quality threshold. Consider lowering the threshold or choosing a different pattern."
+        
+        quality_rate = (quality_files / total_files) * 100
+        
+        if quality_rate >= 80:
+            return f"Excellent pattern match! {quality_files} of {total_files} files have high extraction potential. Recommended: select top {optimal_count} files."
+        elif quality_rate >= 50:
+            return f"Good pattern match. {quality_files} of {total_files} files meet quality standards. Recommended: select top {optimal_count} files."
+        elif quality_rate >= 20:
+            return f"Moderate pattern match. {quality_files} of {total_files} files have decent extraction potential. Consider adjusting quality threshold."
+        else:
+            return f"Low pattern match. Only {quality_files} of {total_files} files meet quality standards. Consider choosing a different pattern."
+
+    # Selection history management methods
+    def record_pattern_selection(
+        self, 
+        pattern_id: int, 
+        file_ids: List[int], 
+        selection_context: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """
+        Record files that were selected for a pattern
+        
+        Args:
+            pattern_id: ID of the pattern used
+            file_ids: List of file IDs that were selected
+            selection_context: Context information about the selection
+            
+        Returns:
+            Dict with recording results
+        """
+        if not self.selection_history_repo:
+            logger.warning("Selection history repository not available")
+            return {
+                "recorded_count": 0,
+                "message": "Selection history not available"
+            }
+        
+        try:
+            records = self.selection_history_repo.record_selection(
+                pattern_id=pattern_id,
+                file_ids=file_ids,
+                selection_context=selection_context
+            )
+            
+            recorded_count = len(records)
+            logger.info(f"Recorded {recorded_count} file selections for pattern {pattern_id}")
+            
+            return {
+                "recorded_count": recorded_count,
+                "message": f"Successfully recorded {recorded_count} file selections",
+                "pattern_id": pattern_id,
+                "recorded_files": [r.file_id for r in records]
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to record pattern selection: {str(e)}")
+            return {
+                "recorded_count": 0,
+                "message": f"Failed to record selection: {str(e)}"
+            }
+
+    def reset_pattern_selections(self, pattern_id: int) -> Dict[str, Any]:
+        """
+        Reset selection history for a specific pattern
+        
+        Args:
+            pattern_id: Pattern ID to reset
+            
+        Returns:
+            Dict with reset results
+        """
+        if not self.selection_history_repo:
+            return {
+                "reset_count": 0,
+                "message": "Selection history not available"
+            }
+        
+        try:
+            reset_count = self.selection_history_repo.reset_pattern_selections(pattern_id)
+            logger.info(f"Reset {reset_count} selections for pattern {pattern_id}")
+            
+            return {
+                "reset_count": reset_count,
+                "message": f"Reset {reset_count} selection records for pattern {pattern_id}",
+                "pattern_id": pattern_id
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to reset pattern selections: {str(e)}")
+            return {
+                "reset_count": 0,
+                "message": f"Failed to reset selections: {str(e)}"
+            }
+
+    def reset_all_selections(self) -> Dict[str, Any]:
+        """
+        Reset all selection history
+        
+        Returns:
+            Dict with reset results
+        """
+        if not self.selection_history_repo:
+            return {
+                "reset_count": 0,
+                "message": "Selection history not available"
+            }
+        
+        try:
+            reset_count = self.selection_history_repo.reset_all_selections()
+            logger.info(f"Reset {reset_count} total selections")
+            
+            return {
+                "reset_count": reset_count,
+                "message": f"Reset {reset_count} total selection records"
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to reset all selections: {str(e)}")
+            return {
+                "reset_count": 0,
+                "message": f"Failed to reset selections: {str(e)}"
+            }
+
+    def get_pattern_selection_history(self, pattern_id: int) -> Dict[str, Any]:
+        """
+        Get selection history for a pattern
+        
+        Args:
+            pattern_id: Pattern ID to get history for
+            
+        Returns:
+            Dict with selection history and statistics
+        """
+        if not self.selection_history_repo:
+            return {
+                "history": [],
+                "stats": {},
+                "message": "Selection history not available"
+            }
+        
+        try:
+            # Get selection history
+            history = self.selection_history_repo.get_selection_history(
+                pattern_id=pattern_id,
+                limit=100
+            )
+            
+            # Get statistics
+            stats = self.selection_history_repo.get_selection_stats(pattern_id)
+            
+            return {
+                "history": [record.to_dict() for record in history],
+                "stats": stats,
+                "message": "Selection history retrieved successfully"
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get selection history: {str(e)}")
+            return {
+                "history": [],
+                "stats": {},
+                "message": f"Failed to get selection history: {str(e)}"
+            }
