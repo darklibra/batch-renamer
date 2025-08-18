@@ -200,6 +200,7 @@ class SmartOperationsRepository:
     
     def update_operation_file_status(
         self, 
+        operation_id: str,
         file_id: int, 
         status: str,
         target_path: Optional[str] = None,
@@ -209,7 +210,8 @@ class SmartOperationsRepository:
     ) -> Optional[SmartOperationFile]:
         """Update operation file status"""
         operation_file = self.db.query(SmartOperationFile).filter(
-            SmartOperationFile.id == file_id
+            SmartOperationFile.operation_id == operation_id,
+            SmartOperationFile.file_id == file_id
         ).first()
         
         if not operation_file:
@@ -222,9 +224,31 @@ class SmartOperationsRepository:
             operation_file.error_message = error_message
         if error_details:
             operation_file.error_details = error_details
-        if processed_at:
+        if processed_at is None and status in ['completed', 'failed']:
+            operation_file.processed_at = datetime.utcnow()
+        elif processed_at:
             operation_file.processed_at = processed_at
         
+        self.db.commit()
+        self.db.refresh(operation_file)
+        return operation_file
+    
+    def update_operation_file_target_path(
+        self, 
+        operation_id: str,
+        file_id: int, 
+        target_path: str
+    ) -> Optional[SmartOperationFile]:
+        """Update operation file target path"""
+        operation_file = self.db.query(SmartOperationFile).filter(
+            SmartOperationFile.operation_id == operation_id,
+            SmartOperationFile.file_id == file_id
+        ).first()
+        
+        if not operation_file:
+            return None
+        
+        operation_file.target_path = target_path
         self.db.commit()
         self.db.refresh(operation_file)
         return operation_file

@@ -26,6 +26,7 @@ import {
 import dataProvider from '../dataProvider';
 import MetadataExtractor from '../components/MetadataExtractor';
 import MetadataViewer from '../components/MetadataViewer';
+import SmartFileManager from '../components/SmartFileManager';
 
 const FileDetailsPage = () => {
   const { id } = useParams();
@@ -299,6 +300,18 @@ const FileDetailsPage = () => {
           />
         </Grid>
 
+        {/* Smart File Manager Section - Only show if file has extracted data */}
+        {extractedData && extractedData.extracted_data && (
+          <Grid item xs={12}>
+            <SmartFileManager
+              selectedFileIds={[parseInt(id)]}
+              onOperationComplete={(result) => {
+                console.log('Smart operation completed:', result);
+                // Could show success message or refresh data here
+              }}
+            />
+          </Grid>
+        )}
       </Grid>
     </Box>
   );

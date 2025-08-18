@@ -67,11 +67,37 @@ const SmartOperationDetailsPage = () => {
   const [filesLimit] = useState(50);
   const [statusFilter, setStatusFilter] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   useEffect(() => {
     loadOperationDetails();
     loadOperationFiles();
   }, [id]);
+
+  // Status filter 변경 시 파일 목록 새로고침
+  useEffect(() => {
+    loadOperationFiles(filesPage, statusFilter);
+  }, [statusFilter, filesPage]);
+
+  // 실행 중인 작업에 대한 자동 새로고침
+  useEffect(() => {
+    let intervalId;
+    
+    if (operation && operation.status === OPERATION_STATUS.RUNNING) {
+      setAutoRefresh(true);
+      intervalId = setInterval(() => {
+        handleRefresh();
+      }, 2000); // 2초마다 새로고침
+    } else {
+      setAutoRefresh(false);
+    }
+    
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [operation?.status]);
 
   const loadOperationDetails = async () => {
     try {
@@ -110,6 +136,11 @@ const SmartOperationDetailsPage = () => {
       loadOperationFiles(filesPage, statusFilter)
     ]);
     setRefreshing(false);
+  };
+
+  const handleStatusFilter = (newFilter) => {
+    setStatusFilter(newFilter);
+    setFilesPage(0); // 필터 변경 시 첫 페이지로 리셋
   };
 
   const handleStartOperation = async () => {
@@ -212,9 +243,19 @@ const SmartOperationDetailsPage = () => {
 
         {operation.status === OPERATION_STATUS.RUNNING && (
           <Box sx={{ mt: 3 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Progress: {operation.progress_percentage}%
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="subtitle2">
+                Progress: {operation.progress_percentage}%
+              </Typography>
+              {autoRefresh && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={14} />
+                  <Typography variant="caption" color="primary">
+                    Auto-refreshing...
+                  </Typography>
+                </Box>
+              )}
+            </Box>
             <LinearProgress 
               variant="determinate" 
               value={operation.progress_percentage} 
@@ -277,24 +318,27 @@ const SmartOperationDetailsPage = () => {
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               size="small"
-              onClick={() => setStatusFilter('')}
+              onClick={() => handleStatusFilter('')}
               variant={statusFilter === '' ? 'contained' : 'outlined'}
+              disabled={filesLoading}
             >
               All
             </Button>
             <Button
               size="small"
-              onClick={() => setStatusFilter(FILE_STATUS.COMPLETED)}
+              onClick={() => handleStatusFilter(FILE_STATUS.COMPLETED)}
               variant={statusFilter === FILE_STATUS.COMPLETED ? 'contained' : 'outlined'}
               color="success"
+              disabled={filesLoading}
             >
               Completed
             </Button>
             <Button
               size="small"
-              onClick={() => setStatusFilter(FILE_STATUS.FAILED)}
+              onClick={() => handleStatusFilter(FILE_STATUS.FAILED)}
               variant={statusFilter === FILE_STATUS.FAILED ? 'contained' : 'outlined'}
               color="error"
+              disabled={filesLoading}
             >
               Failed
             </Button>

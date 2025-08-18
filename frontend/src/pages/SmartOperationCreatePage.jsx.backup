@@ -91,29 +91,19 @@ const SmartOperationCreatePage = () => {
       case 2: // Target Configuration
         return formData.target_directory.trim() !== '' && formData.target_template.trim() !== '';
       case 3: // Preview & Confirm
-        // Preview must exist and either have no warnings or warnings are acceptable
-        return preview !== null && (!preview.warnings || preview.warnings.length === 0);
+        return preview !== null && preview.warnings.length === 0;
       default:
         return false;
     }
   };
 
-  const handleNext = async () => {
+  const handleNext = () => {
     if (validateStep(activeStep)) {
       if (activeStep === 2) {
         // Generate preview before moving to final step
-        try {
-          await generatePreview();
-          // Only advance to next step if preview generation succeeded
-          setActiveStep(prev => prev + 1);
-        } catch (error) {
-          // Error is already handled in generatePreview, just don't advance
-          console.error('Preview generation failed, staying on current step');
-        }
-      } else {
-        // For other steps, advance immediately
-        setActiveStep(prev => prev + 1);
+        generatePreview();
       }
+      setActiveStep(prev => prev + 1);
     }
   };
 
@@ -123,8 +113,6 @@ const SmartOperationCreatePage = () => {
 
   const generatePreview = async () => {
     setPreviewLoading(true);
-    setError(null); // Clear any previous errors
-    
     try {
       const previewData = {
         source_pattern_id: parseInt(formData.source_pattern_id),
@@ -135,40 +123,10 @@ const SmartOperationCreatePage = () => {
 
       const response = await smartOperationsApi.previewOperation(previewData);
       setPreview(response);
-      
-      // Return success to indicate the preview was generated successfully
-      return response;
-      
+      setError(null);
     } catch (err) {
       console.error('Failed to generate preview:', err);
-      
-      // Extract more specific error message
-      let errorMessage = 'Failed to generate preview. Please check your configuration.';
-      
-      if (err.response?.data?.detail) {
-        const detail = err.response.data.detail;
-        errorMessage = detail;
-        
-        // Check for common template placeholder typos
-        if (detail.includes('Invalid template placeholders')) {
-          if (detail.includes('extentions')) {
-            errorMessage += '\n\nDid you mean "{extension}" instead of "{extentions}"?';
-          } else if (detail.includes('extensions')) {
-            errorMessage += '\n\nDid you mean "{extension}" instead of "{extensions}"?';
-          } else if (detail.includes('file_name')) {
-            errorMessage += '\n\nDid you mean "{filename}" instead of "{file_name}"?';
-          } else if (detail.includes('file-name')) {
-            errorMessage += '\n\nDid you mean "{filename}" instead of "{file-name}"?';
-          }
-        }
-      }
-      
-      setError(errorMessage);
-      setPreview(null); // Clear preview on error
-      
-      // Re-throw the error so handleNext knows it failed
-      throw err;
-      
+      setError('Failed to generate preview. Please check your configuration.');
     } finally {
       setPreviewLoading(false);
     }
@@ -294,60 +252,22 @@ const SmartOperationCreatePage = () => {
         <TextField
           fullWidth
           label="Target Filename Template"
-          placeholder="e.g., {name}_{start}_{end}.{extension}"
+          placeholder="e.g., {year}-{month}-{day}_{original_name}"
           value={formData.target_template}
           onChange={(e) => handleInputChange('target_template', e.target.value)}
           required
-          helperText="Use placeholders: {name}, {extension}, {filename} and pattern fields. Example: {name}_{start}_{end}.{extension}"
+          helperText="Use {field_name} placeholders from the selected pattern"
         />
 
         <Button
           variant="outlined"
-          startIcon={previewLoading ? <CircularProgress size={16} /> : <Preview />}
+          startIcon={<Preview />}
           onClick={generatePreview}
-          disabled={!formData.source_pattern_id || !formData.target_directory || !formData.target_template || previewLoading}
+          disabled={!formData.source_pattern_id || !formData.target_directory || !formData.target_template}
           sx={{ mt: 2 }}
         >
-          {previewLoading ? 'Generating Preview...' : 'Generate Preview'}
+          Generate Preview
         </Button>
-
-        {/* Preview Status Indicator */}
-        {(preview || previewLoading) && (
-          <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-            {previewLoading && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <CircularProgress size={20} />
-                <Typography variant="body2" color="text.secondary">
-                  Generating preview for template validation...
-                </Typography>
-              </Box>
-            )}
-            
-            {preview && !previewLoading && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{ 
-                  width: 20, 
-                  height: 20, 
-                  borderRadius: '50%', 
-                  bgcolor: preview.warnings?.length > 0 ? 'warning.main' : 'success.main',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  {preview.warnings?.length > 0 ? (
-                    <Warning sx={{ fontSize: 14, color: 'white' }} />
-                  ) : (
-                    <Typography sx={{ fontSize: 12, color: 'white' }}>✓</Typography>
-                  )}
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  Preview ready: {preview.total_files} files found
-                  {preview.warnings?.length > 0 && ` (${preview.warnings.length} warnings)`}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        )}
       </CardContent>
     </Card>
   );
@@ -482,10 +402,9 @@ const SmartOperationCreatePage = () => {
             <Button
               variant="contained"
               onClick={handleNext}
-              disabled={!validateStep(activeStep) || (activeStep === 2 && previewLoading)}
-              startIcon={activeStep === 2 && previewLoading ? <CircularProgress size={16} /> : null}
+              disabled={!validateStep(activeStep)}
             >
-              {activeStep === 2 && previewLoading ? 'Generating Preview...' : 'Next'}
+              Next
             </Button>
           )}
         </Box>
