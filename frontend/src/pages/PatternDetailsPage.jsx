@@ -20,13 +20,20 @@ import {
   ArrowBack,
   Pattern,
   CalendarToday,
-  Edit,
   CheckCircle,
   Cancel,
-  Code,
-  Label
+  Label,
+  FileCopy,
+  DriveFileMove,
+  FolderOpen,
+  Info,
+  AutoFixHigh
 } from '@mui/icons-material';
+import { EditButton, CopyButton, MoveButton } from '../components/common';
 import dataProvider from '../dataProvider';
+import PatternEvaluationPanel from '../components/PatternEvaluationPanel';
+import apiClient from '../utils/apiClient';
+import { API_ENDPOINTS } from '../config/api';
 
 const PatternDetailsPage = () => {
   const { id } = useParams();
@@ -36,10 +43,15 @@ const PatternDetailsPage = () => {
   const [error, setError] = useState(null);
   const [testInput, setTestInput] = useState('');
   const [testResult, setTestResult] = useState(null);
+  
+  // Smart Copy related state
+  const [patternFiles, setPatternFiles] = useState(null);
+  const [smartCopyLoading, setSmartCopyLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchPattern();
+      fetchPatternFiles();
     }
   }, [id]);
 
@@ -55,6 +67,26 @@ const PatternDetailsPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchPatternFiles = async () => {
+    try {
+      const data = await apiClient.get(API_ENDPOINTS.files.byPattern(id, 10));
+      setPatternFiles(data);
+    } catch (error) {
+      console.error('Failed to fetch pattern files:', error);
+    }
+  };
+
+  const handleSmartCopyWithPattern = () => {
+    if (!pattern || !patternFiles || patternFiles.total === 0) {
+      alert('No files found using this pattern');
+      return;
+    }
+
+    // Navigate to Smart File Manager with pattern pre-selected
+    const url = `/smart-file-manager?pattern=${pattern.id}&auto=true&name=${encodeURIComponent(pattern.name)}`;
+    navigate(url);
   };
 
   const formatDate = (dateString) => {
@@ -141,13 +173,12 @@ const PatternDetailsPage = () => {
         >
           Back to Patterns
         </Button>
-        <Button
-          variant="contained"
-          startIcon={<Edit />}
+        <EditButton
           onClick={() => navigate('/pattern-manager')}
-        >
-          Edit Pattern
-        </Button>
+          label="Edit Pattern"
+          variant="contained"
+          size="medium"
+        />
       </Box>
 
       <Grid container spacing={3}>
@@ -320,8 +351,114 @@ const PatternDetailsPage = () => {
               )}
             </CardContent>
           </Card>
+          
+          {/* Smart Copy Section */}
+          <Card sx={{ mt: 3 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <AutoFixHigh sx={{ mr: 2, color: 'primary.main', fontSize: 32 }} />
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
+                    Smart File Operations
+                  </Typography>
+                  <Typography variant="body1" color="textSecondary">
+                    Organize all files using this pattern with intelligent metadata-based templates
+                  </Typography>
+                </Box>
+              </Box>
+
+              {patternFiles && (
+                <Box sx={{ mb: 3 }}>
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <FolderOpen />
+                      <Typography variant="body2">
+                        Found <strong>{patternFiles.total}</strong> files using this pattern
+                      </Typography>
+                    </Box>
+                  </Alert>
+                  
+                  {patternFiles.files && patternFiles.files.length > 0 && (
+                    <Box>
+                      <Typography variant="subtitle2" gutterBottom>
+                        Sample Files:
+                      </Typography>
+                      <List dense>
+                        {patternFiles.files.slice(0, 3).map((file) => (
+                          <ListItem key={file.id} sx={{ pl: 0 }}>
+                            <ListItemText
+                              primary={file.filename}
+                              secondary={file.path}
+                              primaryTypographyProps={{ variant: 'body2' }}
+                              secondaryTypographyProps={{ variant: 'caption' }}
+                            />
+                          </ListItem>
+                        ))}
+                        {patternFiles.total > 3 && (
+                          <ListItem sx={{ pl: 0 }}>
+                            <ListItemText
+                              primary={`... and ${patternFiles.total - 3} more files`}
+                              primaryTypographyProps={{ 
+                                variant: 'body2', 
+                                style: { fontStyle: 'italic', color: 'text.secondary' }
+                              }}
+                            />
+                          </ListItem>
+                        )}
+                      </List>
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                <CopyButton
+                  onClick={handleSmartCopyWithPattern}
+                  disabled={!patternFiles || patternFiles.total === 0 || smartCopyLoading}
+                  loading={smartCopyLoading}
+                  label="Smart Copy Files"
+                  size="large"
+                  sx={{ 
+                    minWidth: 220,
+                    py: 1.5,
+                    fontSize: '1rem'
+                  }}
+                />
+                
+                <MoveButton
+                  onClick={() => {
+                    const url = `/smart-file-manager?pattern=${pattern.id}&auto=true&name=${encodeURIComponent(pattern.name)}&operation=move`;
+                    navigate(url);
+                  }}
+                  disabled={!patternFiles || patternFiles.total === 0}
+                  label="Smart Move Files"
+                  size="large"
+                  sx={{ 
+                    minWidth: 220,
+                    py: 1.5,
+                    fontSize: '1rem'
+                  }}
+                />
+              </Box>
+
+              {(!patternFiles || patternFiles.total === 0) && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  <Typography variant="body2">
+                    No files are currently using this pattern. Apply this pattern to files first, 
+                    then use Smart Copy to organize them with consistent naming.
+                  </Typography>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
+
+      {/* Pattern Evaluation Panel */}
+      <PatternEvaluationPanel 
+        pattern={pattern} 
+        onRefresh={fetchPattern}
+      />
     </Box>
   );
 };

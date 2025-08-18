@@ -1,6 +1,8 @@
 import simpleRestProvider from 'ra-data-simple-rest';
+import apiClient from './utils/apiClient.js';
+import { API_CONFIG, API_ENDPOINTS, buildUrl, buildUrlWithParams } from './config/api.js';
 
-const apiUrl = (import.meta.env.VITE_REACT_APP_API_BASE_URL || 'http://localhost:8000') + '/api/v1';
+const apiUrl = `${API_CONFIG.baseUrl}/api/v1`;
 
 const customDataProvider = {
     getList: (resource, params) => {
@@ -11,23 +13,23 @@ const customDataProvider = {
         const query = {
             page: page,
             per_page: perPage,
-            _sort: field,
-            _order: order,
             ...filter,
         };
 
-        const queryString = Object.keys(query)
-            .map(key => `${key}=${query[key]}`)
-            .join('&');
+        // Handle different API parameter naming conventions
+        if (resource === 'patterns') {
+            // Patterns API uses sort_by/sort_order and has per_page limit of 100
+            query.sort_by = field;
+            query.sort_order = order.toLowerCase(); // asc/desc
+            query.per_page = Math.min(perPage, 100); // Backend limit is 100
+        } else {
+            // Other APIs use _sort/_order  
+            query._sort = field;
+            query._order = order;
+        }
 
-        return fetch(`${apiUrl}/${resource}?${queryString}`)
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(error => {
-                        throw new Error(error.detail || 'An error occurred.');
-                    });
-                }
-                return response.json().then(responseData => {
+        return apiClient.get(`/api/v1/${resource}/`, { params: query })
+            .then(responseData => {
                     // Handle different API response structures
                     let data, total;
                     
@@ -75,15 +77,26 @@ const customDataProvider = {
                         data: data,
                         total: total,
                     };
-                });
+                })
+            .catch(error => {
+                // Handle ApiError from apiClient
+                if (error.name === 'ApiError') {
+                    throw new Error(error.data?.detail || error.message || 'An error occurred.');
+                }
+                throw error;
             });
     },
     getOne: (resource, params) => {
-        return fetch(`${apiUrl}/${resource}/${params.id}`)
-            .then(response => response.json())
+        return apiClient.get(`/api/v1/${resource}/${params.id}`)
             .then(data => ({
                 data: data,
-            }));
+            }))
+            .catch(error => {
+                if (error.name === 'ApiError') {
+                    throw new Error(error.data?.detail || `Failed to get ${resource}`);
+                }
+                throw error;
+            });
     },
     getMany: (resource, params) => {
         const query = params.ids.map(id => `ids=${id}`).join('&');
@@ -107,49 +120,59 @@ const customDataProvider = {
         const query = {
             page: page,
             per_page: perPage,
-            _sort: field,
-            _order: order,
             [target]: id,
             ...filter,
         };
 
-        const queryString = Object.keys(query)
-            .map(key => `${key}=${query[key]}`)
-            .join('&');
+        // Handle different API parameter naming conventions
+        if (resource === 'patterns') {
+            // Patterns API uses sort_by/sort_order and has per_page limit of 100
+            query.sort_by = field;
+            query.sort_order = order.toLowerCase(); // asc/desc
+            query.per_page = Math.min(perPage, 100); // Backend limit is 100
+        } else {
+            // Other APIs use _sort/_order  
+            query._sort = field;
+            query._order = order;
+        }
 
-        return fetch(`${apiUrl}/${resource}?${queryString}`)
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(error => {
-                        throw new Error(error.detail || 'An error occurred.');
-                    });
+        return apiClient.get(`/api/v1/${resource}/`, { params: query })
+            .then(responseData => {
+                let data, total;
+                
+                if (resource === 'patterns' && responseData.patterns) {
+                    // Patterns API response format
+                    data = responseData.patterns;
+                    total = responseData.pagination?.total || 0;
+                } else if (Array.isArray(responseData)) {
+                    // Direct array response
+                    data = responseData;
+                    total = responseData.length;
+                } else {
+                    // Other response formats
+                    data = responseData.data || responseData.items || [];
+                    total = responseData.total || data.length;
                 }
-                const contentRange = response.headers.get('Content-Range');
-                const total = contentRange ? parseInt(contentRange.split('/').pop(), 10) : 0;
-                return response.json().then(data => {
-                    // 각 아이템에 id가 있는지 확인 (디버깅용)
-                    if (data.length > 0 && data[0].id === undefined) {
-                        console.error("Received data items do not have an 'id' key:", data);
-                        // 여기서 오류를 throw하거나, id를 강제로 추가하는 로직을 넣을 수 있습니다.
-                        // 예를 들어, data.map(item => ({ ...item, id: item.some_other_unique_field }))
-                    }
-                    return {
-                        data: data,
-                        total: total,
-                    };
-                });
+
+                // Validate that items have IDs
+                if (data.length > 0 && data[0].id === undefined) {
+                    console.error("Received data items do not have an 'id' key:", data);
+                }
+                
+                return {
+                    data: data,
+                    total: total,
+                };
+            })
+            .catch(error => {
+                if (error.name === 'ApiError') {
+                    throw new Error(error.data?.detail || error.message || 'An error occurred.');
+                }
+                throw error;
             });
     },
     update: (resource, params) => {
-        return fetch(`${apiUrl}/${resource}/${params.id}`,
-            {
-                method: 'PUT',
-                body: JSON.stringify(params.data),
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then(response => response.json())
+        return apiClient.put(`/api/v1/${resource}/${params.id}`, params.data)
             .then(data => ({
                 data: data,
             }));
@@ -171,67 +194,36 @@ const customDataProvider = {
     },
     create: (resource, params) => {
         if (resource === 'file-change-patterns/test') {
-            return fetch(`${apiUrl}/${resource}`,
-                {
-                    method: 'POST',
-                    body: JSON.stringify(params.data),
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(error => {
-                            throw new Error(error.detail || 'An error occurred during pattern test.');
-                        });
+            return apiClient.post(`/api/v1/${resource}`, params.data)
+                .then(data => ({
+                    data: data, // data.results will be accessed in fileChangePatterns.js
+                }))
+                .catch(error => {
+                    if (error.name === 'ApiError') {
+                        throw new Error(error.data?.detail || 'An error occurred during pattern test.');
                     }
-                    return response.json().then(data => ({
-                        data: data, // data.results will be accessed in fileChangePatterns.js
-                    }));
+                    throw error;
                 });
         } else if (resource === 'file-change-patterns/confirm') {
-            return fetch(`${apiUrl}/${resource}`,
-                {
-                    method: 'POST',
-                    body: JSON.stringify(params.data),
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(error => {
-                            throw new Error(error.detail || 'An error occurred during pattern confirmation.');
-                        });
+            return apiClient.post(`/api/v1/${resource}`, params.data)
+                .then(data => ({
+                    data: data,
+                }))
+                .catch(error => {
+                    if (error.name === 'ApiError') {
+                        throw new Error(error.data?.detail || 'An error occurred during pattern confirmation.');
                     }
-                    return response.json().then(data => ({
-                        data: data,
-                    }));
+                    throw error;
                 });
         } else {
-            return fetch(`${apiUrl}/${resource}`,
-                {
-                    method: 'POST',
-                    body: JSON.stringify(params.data),
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                })
-                .then(response => response.json())
+            return apiClient.post(`/api/v1/${resource}`, params.data)
                 .then(data => ({
                     data: data,
                 }));
         }
     },
     delete: (resource, params) => {
-        return fetch(`${apiUrl}/${resource}/${params.id}`,
-            {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then(response => response.json())
+        return apiClient.delete(`/api/v1/${resource}/${params.id}`)
             .then(data => ({
                 data: data,
             }));
