@@ -26,7 +26,7 @@ const DirectoryBrowser = ({ onDirectorySelect, selectedPath }) => {
     const [loading, setLoading] = useState(false);
     // Using imported notification system
 
-    const fetchDirectories = async (path) => {
+    const fetchDirectories = async () => {
         setLoading(true);
         try {
             // Mock directory structure - replace with actual API call
@@ -432,7 +432,7 @@ const FileScanner = ({ onScanComplete }) => {
         files_indexed: 0,
         errors: 0
     });
-    const [currentJobId, setCurrentJobId] = useState(null);
+    const [, setCurrentJobId] = useState(null);
     const [pollingInterval, setPollingInterval] = useState(null);
     
     // Using imported notification system

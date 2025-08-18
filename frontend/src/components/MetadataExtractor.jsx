@@ -45,7 +45,7 @@ const MetadataExtractor = ({ fileId, fileName, onExtractionComplete, onError }) 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [extractionProgress, setExtractionProgress] = useState(0);
-    const [jobId, setJobId] = useState(null);
+    const [, setJobId] = useState(null);
     const [showDetails, setShowDetails] = useState(false);
 
     // Load available patterns on component mount

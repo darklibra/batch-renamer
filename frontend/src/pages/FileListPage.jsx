@@ -7,19 +7,16 @@ import {
   CardContent,
   Grid,
   Chip,
-  Button,
   CircularProgress,
   Alert,
-  TextField,
-  InputAdornment,
   Pagination
 } from '@mui/material';
 import {
-  Search,
   FilePresent,
-  Visibility,
-  CalendarToday
+  CalendarToday,
+  FolderOpen
 } from '@mui/icons-material';
+import { PageHeader, StandardCardActions } from '../components/common';
 import dataProvider from '../dataProvider';
 
 const FileListPage = () => {
@@ -110,25 +107,21 @@ const FileListPage = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">
-          Files ({total})
-        </Typography>
-        <TextField
-          placeholder="Search files..."
-          value={searchTerm}
-          onChange={handleSearchChange}
-          size="small"
-          sx={{ minWidth: 300 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Box>
+      <PageHeader
+        title="Files"
+        count={total}
+        subtitle="Browse and manage indexed files with extracted metadata"
+        primaryAction={{
+          label: "Scan Files",
+          onClick: () => navigate('/scanner'),
+          icon: <FolderOpen />
+        }}
+        searchProps={{
+          placeholder: "Search files...",
+          value: searchTerm,
+          onChange: handleSearchChange
+        }}
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -146,13 +139,27 @@ const FileListPage = () => {
             {searchTerm ? 'Try adjusting your search terms' : 'Start by scanning some directories'}
           </Typography>
           {!searchTerm && (
-            <Button
-              variant="contained"
-              onClick={() => navigate('/scanner')}
-              sx={{ mt: 2 }}
-            >
-              Scan Files
-            </Button>
+            <Box sx={{ mt: 2 }}>
+              <button
+                onClick={() => navigate('/scanner')}
+                style={{
+                  padding: '12px 24px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  background: '#1976d2',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  margin: '0 auto'
+                }}
+              >
+                <FolderOpen /> Scan Files
+              </button>
+            </Box>
           )}
         </Box>
       ) : (
@@ -197,16 +204,15 @@ const FileListPage = () => {
                       </Typography>
                     </Box>
 
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Visibility />}
-                      onClick={() => navigate(`/files/${file.id}`)}
-                      fullWidth
-                    >
-                      View Details
-                    </Button>
                   </CardContent>
+                  
+                  <StandardCardActions
+                    onView={() => navigate(`/files/${file.id}`)}
+                    showEdit={false}
+                    showDelete={false}
+                    viewLabel="View Details"
+                    layout="grouped"
+                  />
                 </Card>
               </Grid>
             ))}

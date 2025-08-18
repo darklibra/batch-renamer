@@ -123,8 +123,9 @@ class ExtractionPattern(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationship to files
+    # Relationships
     files = relationship("IndexedFile", back_populates="pattern")
+    smart_operations = relationship("SmartFileOperation", back_populates="source_pattern")
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for API responses"""

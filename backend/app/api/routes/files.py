@@ -869,6 +869,212 @@ def search_files_with_patterns(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
+# Pattern-based File Selection Endpoints
+@router.get("/files/by-pattern/{pattern_id}")
+def get_files_by_pattern(
+    pattern_id: int,
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(50, ge=1, le=100, description="Items per page"),
+    include_metadata: bool = Query(True, description="Include extracted metadata in response"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get files that are currently using a specific pattern
+    """
+    try:
+        from app.models.file_models import IndexedFile
+        from app.repositories.pattern_repository import PatternRepository
+        
+        pattern_repo = PatternRepository(db)
+        pattern = pattern_repo.get_pattern_by_id(pattern_id)
+        
+        if not pattern:
+            raise HTTPException(status_code=404, detail="Pattern not found")
+        
+        # Get files that currently use this pattern
+        query = db.query(IndexedFile).filter(IndexedFile.pattern_id == pattern_id)
+        
+        # Get total count
+        total = query.count()
+        
+        # Apply pagination
+        offset = (page - 1) * per_page
+        files = query.offset(offset).limit(per_page).all()
+        
+        # Calculate total pages
+        total_pages = (total + per_page - 1) // per_page
+        
+        # Format response
+        file_responses = []
+        for file_obj in files:
+            file_data = file_obj.to_dict()
+            if include_metadata and file_obj.extracted_data:
+                file_data['extracted_data'] = file_obj.extracted_data
+            file_responses.append(file_data)
+        
+        return {
+            "pattern_id": pattern_id,
+            "pattern_name": pattern.name,
+            "files": file_responses,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_prev": page > 1
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get files by pattern: {str(e)}")
+
+@router.post("/files/smart-copy-by-pattern")
+async def smart_copy_by_pattern(
+    pattern_id: int,
+    target_directory: str,
+    filename_template: str,
+    conflict_resolution: str = Query("skip", regex="^(skip|overwrite|rename)$"),
+    create_backup: bool = Query(False),
+    file_filters: Optional[Dict] = None,
+    smart_file_service: SmartFileService = Depends(get_smart_file_service),
+    db: Session = Depends(get_db)
+):
+    """
+    Start smart copy operation for all files using a specific pattern
+    """
+    try:
+        from app.models.file_models import IndexedFile
+        from app.repositories.pattern_repository import PatternRepository
+        
+        pattern_repo = PatternRepository(db)
+        pattern = pattern_repo.get_pattern_by_id(pattern_id)
+        
+        if not pattern:
+            raise HTTPException(status_code=404, detail="Pattern not found")
+        
+        # Get all files that use this pattern
+        query = db.query(IndexedFile).filter(IndexedFile.pattern_id == pattern_id)
+        
+        # Apply additional filters if provided
+        if file_filters:
+            if 'extension' in file_filters:
+                extensions = file_filters['extension'] if isinstance(file_filters['extension'], list) else [file_filters['extension']]
+                query = query.filter(IndexedFile.extension.in_(extensions))
+            if 'path_contains' in file_filters:
+                query = query.filter(IndexedFile.path.contains(file_filters['path_contains']))
+        
+        files = query.all()
+        file_ids = [file.id for file in files]
+        
+        if not file_ids:
+            raise HTTPException(status_code=404, detail=f"No files found using pattern '{pattern.name}'")
+        
+        # Security validation for target directory
+        if not _validate_path_security(target_directory):
+            raise HTTPException(status_code=403, detail="Access to target directory forbidden")
+        
+        # Start smart copy job with the pattern
+        job_id = await smart_file_service.start_smart_copy_job(
+            file_ids=file_ids,
+            target_directory=target_directory,
+            template=filename_template,
+            conflict_resolution=conflict_resolution,
+            create_backup=create_backup,
+            pattern_id=pattern_id
+        )
+        
+        return {
+            "job_id": job_id,
+            "pattern_id": pattern_id,
+            "pattern_name": pattern.name,
+            "message": f"Smart copy operation started for {len(file_ids)} files using pattern '{pattern.name}'",
+            "operation_type": "smart_copy_by_pattern",
+            "file_count": len(file_ids),
+            "template": filename_template,
+            "target_directory": target_directory
+        }
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start pattern-based smart copy: {str(e)}")
+
+@router.post("/files/smart-move-by-pattern")
+async def smart_move_by_pattern(
+    pattern_id: int,
+    target_directory: str,
+    filename_template: str,
+    conflict_resolution: str = Query("skip", regex="^(skip|overwrite|rename)$"),
+    create_backup: bool = Query(False),
+    file_filters: Optional[Dict] = None,
+    smart_file_service: SmartFileService = Depends(get_smart_file_service),
+    db: Session = Depends(get_db)
+):
+    """
+    Start smart move operation for all files using a specific pattern
+    """
+    try:
+        from app.models.file_models import IndexedFile
+        from app.repositories.pattern_repository import PatternRepository
+        
+        pattern_repo = PatternRepository(db)
+        pattern = pattern_repo.get_pattern_by_id(pattern_id)
+        
+        if not pattern:
+            raise HTTPException(status_code=404, detail="Pattern not found")
+        
+        # Get all files that use this pattern
+        query = db.query(IndexedFile).filter(IndexedFile.pattern_id == pattern_id)
+        
+        # Apply additional filters if provided
+        if file_filters:
+            if 'extension' in file_filters:
+                extensions = file_filters['extension'] if isinstance(file_filters['extension'], list) else [file_filters['extension']]
+                query = query.filter(IndexedFile.extension.in_(extensions))
+            if 'path_contains' in file_filters:
+                query = query.filter(IndexedFile.path.contains(file_filters['path_contains']))
+        
+        files = query.all()
+        file_ids = [file.id for file in files]
+        
+        if not file_ids:
+            raise HTTPException(status_code=404, detail=f"No files found using pattern '{pattern.name}'")
+        
+        # Security validation for target directory
+        if not _validate_path_security(target_directory):
+            raise HTTPException(status_code=403, detail="Access to target directory forbidden")
+        
+        # Start smart move job with the pattern
+        job_id = await smart_file_service.start_smart_move_job(
+            file_ids=file_ids,
+            target_directory=target_directory,
+            template=filename_template,
+            conflict_resolution=conflict_resolution,
+            create_backup=create_backup,
+            pattern_id=pattern_id
+        )
+        
+        return {
+            "job_id": job_id,
+            "pattern_id": pattern_id,
+            "pattern_name": pattern.name,
+            "message": f"Smart move operation started for {len(file_ids)} files using pattern '{pattern.name}'",
+            "operation_type": "smart_move_by_pattern",
+            "file_count": len(file_ids),
+            "template": filename_template,
+            "target_directory": target_directory
+        }
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start pattern-based smart move: {str(e)}")
+
 # Smart File Management Endpoints
 @router.post("/files/smart-copy")
 async def start_smart_copy_job(

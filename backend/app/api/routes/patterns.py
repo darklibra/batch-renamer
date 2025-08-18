@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, Body
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
@@ -15,6 +15,7 @@ from app.repositories.pattern_repository import (
 from app.repositories.selection_history_repository import PatternSelectionHistoryRepository
 from app.services.pattern_extraction_service import PatternExtractionService
 from app.services.pattern_validation_service import PatternValidationService, PatternTester
+from app.services.pattern_evaluation_service import PatternEvaluationService
 
 router = APIRouter(prefix="/patterns", tags=["Pattern Management"])
 
@@ -46,6 +47,30 @@ class PatternUpdateRequest(BaseModel):
     priority: Optional[int] = Field(None, ge=0, le=100)
     description: Optional[str] = Field(None, max_length=500)
     is_active: Optional[bool] = None
+
+
+class PatternEvaluationRequest(BaseModel):
+    apply_threshold: int = Field(
+        default=70, ge=0, le=100, description="Minimum score threshold for application"
+    )
+    force_apply: bool = Field(
+        default=False, description="Force apply pattern regardless of score"
+    )
+    dry_run: bool = Field(
+        default=False, description="Preview mode without actual changes"
+    )
+    file_filters: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional filters for file selection"
+    )
+
+
+class PatternPreviewRequest(BaseModel):
+    apply_threshold: int = Field(
+        default=70, ge=0, le=100, description="Minimum score threshold for application"
+    )
+    file_filters: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional filters for file selection"
+    )
 
 
 class PatternTestRequest(BaseModel):
@@ -201,6 +226,11 @@ def get_pattern_service(db: Session = Depends(get_db)) -> PatternExtractionServi
     return PatternExtractionService(
         file_repo, pattern_repo, application_repo, failure_repo, job_repo, selection_history_repo
     )
+
+
+def get_pattern_evaluation_service(db: Session = Depends(get_db)) -> PatternEvaluationService:
+    """Get pattern evaluation service for fitness assessment and auto-application"""
+    return PatternEvaluationService(db)
 
 
 def get_pattern_repository(db: Session = Depends(get_db)) -> PatternRepository:
@@ -1052,4 +1082,143 @@ async def get_pattern_selection_history(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to get selection history: {str(e)}"
+        )
+
+
+# Pattern Evaluation and Auto-Application Endpoints
+@router.post("/{pattern_id}/preview-application", response_model=Dict[str, Any])
+async def preview_pattern_application(
+    pattern_id: int = Path(..., description="Pattern ID to preview"),
+    evaluation_service: PatternEvaluationService = Depends(get_pattern_evaluation_service),
+    request: PatternPreviewRequest = Body(...),
+):
+    """
+    Preview pattern application results without making changes
+    Shows which files would be affected and their score improvements
+    """
+    try:
+        result = evaluation_service.evaluate_pattern_for_all_files(
+            pattern_id=pattern_id,
+            apply_threshold=request.apply_threshold,
+            file_filters=request.file_filters
+        )
+        
+        return {
+            "pattern_id": pattern_id,
+            "total_files": result["total_files"],
+            "evaluation_summary": result["evaluation_summary"],
+            "top_improvements": result["top_improvements"],
+            "preview_mode": True
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to preview pattern application: {str(e)}"
+        )
+
+
+@router.post("/{pattern_id}/evaluate-and-apply", response_model=Dict[str, Any])
+async def evaluate_and_apply_pattern(
+    pattern_id: int = Path(..., description="Pattern ID to evaluate and apply"),
+    evaluation_service: PatternEvaluationService = Depends(get_pattern_evaluation_service),
+    request: PatternEvaluationRequest = Body(...),
+):
+    """
+    Evaluate pattern fitness against all files and apply where beneficial
+    """
+    try:
+        result = evaluation_service.apply_pattern_to_files(
+            pattern_id=pattern_id,
+            apply_threshold=request.apply_threshold,
+            force_apply=request.force_apply,
+            dry_run=request.dry_run
+        )
+        
+        return {
+            "pattern_id": pattern_id,
+            "evaluated_files": result["evaluated_files"],
+            "applied_files": result["applied_files"],
+            "skipped_files": result["skipped_files"],
+            "dry_run": result["dry_run"],
+            "results": result["results"]
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to evaluate and apply pattern: {str(e)}"
+        )
+
+
+class ApplyToFilesRequest(BaseModel):
+    file_ids: List[int] = Field(..., description="List of file IDs to apply pattern to")
+    apply_threshold: int = Field(
+        default=70, ge=0, le=100, description="Minimum score threshold for application"
+    )
+    force_apply: bool = Field(
+        default=False, description="Force apply pattern regardless of score"
+    )
+    dry_run: bool = Field(
+        default=False, description="Preview mode without actual changes"
+    )
+
+
+@router.post("/{pattern_id}/apply-to-files", response_model=Dict[str, Any])
+async def apply_pattern_to_specific_files(
+    pattern_id: int = Path(..., description="Pattern ID to apply"),
+    evaluation_service: PatternEvaluationService = Depends(get_pattern_evaluation_service),
+    request: ApplyToFilesRequest = Body(...),
+):
+    """
+    Apply pattern to specific files with fitness evaluation
+    """
+    try:
+        result = evaluation_service.apply_pattern_to_files(
+            pattern_id=pattern_id,
+            file_ids=request.file_ids,
+            apply_threshold=request.apply_threshold,
+            force_apply=request.force_apply,
+            dry_run=request.dry_run
+        )
+        
+        return {
+            "pattern_id": pattern_id,
+            "target_files": len(request.file_ids),
+            "evaluated_files": result["evaluated_files"],
+            "applied_files": result["applied_files"],
+            "skipped_files": result["skipped_files"],
+            "dry_run": result["dry_run"],
+            "results": result["results"]
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to apply pattern to files: {str(e)}"
+        )
+
+
+@router.get("/{pattern_id}/effectiveness-stats", response_model=Dict[str, Any])
+async def get_pattern_effectiveness_stats(
+    pattern_id: int = Path(..., description="Pattern ID to get stats for"),
+    evaluation_service: PatternEvaluationService = Depends(get_pattern_evaluation_service),
+):
+    """
+    Get effectiveness statistics for a pattern
+    """
+    try:
+        stats = evaluation_service.get_pattern_effectiveness_stats(pattern_id)
+        
+        return {
+            "pattern_id": pattern_id,
+            "effectiveness_stats": stats
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get effectiveness stats: {str(e)}"
         )

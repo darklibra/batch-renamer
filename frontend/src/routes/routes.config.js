@@ -6,7 +6,8 @@ import {
   FolderOpen,
   Work,
   Settings,
-  DriveFileMoveOutlined
+  DriveFileMoveOutlined,
+  PlaylistPlay
 } from '@mui/icons-material';
 
 // Lazy load pages for better performance
@@ -19,6 +20,9 @@ const FileScannerPage = lazy(() => import('../pages/FileScannerPage.jsx'));
 const PatternManagerPage = lazy(() => import('../pages/PatternManagerPage.jsx'));
 const SmartFileManagerPage = lazy(() => import('../pages/SmartFileManagerPage.jsx'));
 const JobListPage = lazy(() => import('../pages/JobListPage.jsx'));
+const SmartOperationsListPage = lazy(() => import('../pages/SmartOperationsListPage.jsx'));
+const SmartOperationCreatePage = lazy(() => import('../pages/SmartOperationCreatePage.jsx'));
+const SmartOperationDetailsPage = lazy(() => import('../pages/SmartOperationDetailsPage.jsx'));
 
 // Route configuration with metadata
 export const routeConfig = [
@@ -81,7 +85,7 @@ export const routeConfig = [
     element: SmartFileManagerPage,
     title: 'Smart File Manager',
     icon: DriveFileMoveOutlined,
-    showInNav: true,
+    showInNav: false,  // Hidden from navigation menu - Pattern-only access
     exact: true
   },
   {
@@ -91,6 +95,28 @@ export const routeConfig = [
     icon: Work,
     showInNav: true,
     exact: true
+  },
+  {
+    path: '/smart-operations',
+    element: SmartOperationsListPage,
+    title: 'Smart Operations',
+    icon: PlaylistPlay,
+    showInNav: true,
+    exact: true
+  },
+  {
+    path: '/smart-operations/create',
+    element: SmartOperationCreatePage,
+    title: 'Create Smart Operation',
+    showInNav: false,
+    exact: true
+  },
+  {
+    path: '/smart-operations/:id',
+    element: SmartOperationDetailsPage,
+    title: 'Smart Operation Details',
+    showInNav: false,
+    exact: false
   }
 ];
 
@@ -100,7 +126,7 @@ export const navigationItems = routeConfig.filter(route => route.showInNav);
 // Route groups for organization
 export const routeGroups = {
   main: ['/', '/files', '/patterns'],
-  operations: ['/scanner', '/smart-file-manager'],
+  operations: ['/scanner', '/smart-operations'],  // Smart Operations added to operations group
   management: ['/pattern-manager'],
   system: ['/jobs']
 };

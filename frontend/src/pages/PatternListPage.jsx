@@ -7,24 +7,18 @@ import {
   CardContent,
   Grid,
   Chip,
-  Button,
   CircularProgress,
   Alert,
-  TextField,
-  InputAdornment,
-  Pagination,
-  IconButton
+  Pagination
 } from '@mui/material';
 import {
-  Search,
   Pattern,
-  Visibility,
-  Add,
-  Edit,
   CalendarToday,
   CheckCircle,
-  Cancel
+  Cancel,
+  Add
 } from '@mui/icons-material';
+import { PageHeader, StandardCardActions } from '../components/common';
 import dataProvider from '../dataProvider';
 
 const PatternListPage = () => {
@@ -96,34 +90,21 @@ const PatternListPage = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">
-          Patterns ({total})
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <TextField
-            placeholder="Search patterns..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            size="small"
-            sx={{ minWidth: 300 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => navigate('/pattern-manager')}
-          >
-            Create Pattern
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Patterns"
+        count={total}
+        subtitle="Create and manage regex patterns for extracting structured data from filenames"
+        primaryAction={{
+          label: "Create Pattern",
+          onClick: () => navigate('/pattern-manager'),
+          icon: <Add />
+        }}
+        searchProps={{
+          placeholder: "Search patterns...",
+          value: searchTerm,
+          onChange: handleSearchChange
+        }}
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -141,14 +122,26 @@ const PatternListPage = () => {
             {searchTerm ? 'Try adjusting your search terms' : 'Create your first pattern to extract structured data from filenames'}
           </Typography>
           {!searchTerm && (
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => navigate('/pattern-manager')}
-              sx={{ mt: 2 }}
-            >
-              Create Pattern
-            </Button>
+            <Box sx={{ mt: 2 }}>
+              <button
+                onClick={() => navigate('/pattern-manager')}
+                style={{
+                  padding: '12px 24px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  background: '#1976d2',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <Add /> Create Pattern
+              </button>
+            </Box>
           )}
         </Box>
       ) : (
@@ -163,13 +156,6 @@ const PatternListPage = () => {
                       <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
                         {pattern.name}
                       </Typography>
-                      <IconButton
-                        size="small"
-                        onClick={() => navigate(`/patterns/${pattern.id}`)}
-                        title="Edit Pattern"
-                      >
-                        <Edit fontSize="small" />
-                      </IconButton>
                     </Box>
                     
                     <Box sx={{ mb: 2 }}>
@@ -217,16 +203,16 @@ const PatternListPage = () => {
                       </Typography>
                     </Box>
 
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Visibility />}
-                      onClick={() => navigate(`/patterns/${pattern.id}`)}
-                      fullWidth
-                    >
-                      View Details
-                    </Button>
                   </CardContent>
+                  
+                  <StandardCardActions
+                    onView={() => navigate(`/patterns/${pattern.id}`)}
+                    onEdit={() => navigate(`/patterns/${pattern.id}`)}
+                    showDelete={false}
+                    viewLabel="View Details"
+                    editLabel="Edit"
+                    layout="grouped"
+                  />
                 </Card>
               </Grid>
             ))}

@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Box, Card, CardContent, CardActions, Typography, Button, TextField,
+    Box, Card, CardContent, Typography, TextField, Button,
     Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
-    List, ListItem, ListItemText, ListItemIcon, ListItemSecondaryAction,
-    Chip, Tooltip, Switch, FormControlLabel, Divider, Alert,
+    List, ListItem, ListItemText,
+    Chip, Switch, FormControlLabel, Alert,
     Accordion, AccordionSummary, AccordionDetails, Paper, Grid,
-    Table, TableBody, TableCell, TableHead, TableRow, Badge,
-    Fab, Collapse, LinearProgress
+    LinearProgress
 } from '@mui/material';
 import {
-    Add, Edit, Delete, PlayArrow, Stop, Visibility, Settings,
-    ExpandMore, Close, Science, Analytics, TrendingUp, Security,
-    CheckCircle, Error as ErrorIcon, Warning, Info, Speed,
-    ContentCopy, Download, Upload, Refresh, BugReport
+    Add, Edit, Delete, ExpandMore, Close, Science, Security,
+    CheckCircle, Error as ErrorIcon, Warning, Info, Refresh
 } from '@mui/icons-material';
+import { PageHeader, StandardCardActions } from './common';
 // Removed useNotify to avoid Router context issues
 import dataProvider from '../dataProvider';
 import { notify } from '../utils/notifications';
@@ -176,30 +174,15 @@ const PatternCard = ({ pattern, onEdit, onDelete, onTest, onToggleActive }) => {
                 </Accordion>
             </CardContent>
 
-            <CardActions>
-                <Button 
-                    startIcon={<Science />} 
-                    onClick={() => onTest(pattern)}
-                    size="small"
-                >
-                    Test Pattern
-                </Button>
-                <Button 
-                    startIcon={<Edit />} 
-                    onClick={() => onEdit(pattern)}
-                    size="small"
-                >
-                    Edit
-                </Button>
-                <Button 
-                    startIcon={<Delete />} 
-                    onClick={() => onDelete(pattern.id)}
-                    color="error"
-                    size="small"
-                >
-                    Delete
-                </Button>
-            </CardActions>
+            <StandardCardActions
+                onEdit={() => onEdit(pattern)}
+                onDelete={() => onDelete(pattern.id)}
+                onTest={() => onTest(pattern)}
+                showView={false}
+                showTest={true}
+                testLabel="Test Pattern"
+                deleteConfirmMessage="정말로 이 패턴을 삭제하시겠습니까?"
+            />
         </Card>
     );
 };
@@ -676,19 +659,23 @@ const PatternManager = () => {
 
     return (
         <Box sx={{ maxWidth: 1200, mx: 'auto', p: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h4" sx={{ flexGrow: 1 }}>
-                    Pattern Management System
-                </Typography>
-                <Button
-                    variant="contained"
-                    startIcon={<Refresh />}
-                    onClick={fetchPatterns}
-                    sx={{ mr: 2 }}
-                >
-                    Refresh
-                </Button>
-            </Box>
+            <PageHeader
+                title="Pattern Management System"
+                subtitle="Create, test, and manage regex patterns for extracting structured data from filenames"
+                primaryAction={{
+                    label: "Create Pattern",
+                    onClick: handleCreatePattern,
+                    icon: <Add />
+                }}
+                secondaryActions={[
+                    {
+                        type: 'refresh',
+                        onClick: fetchPatterns,
+                        label: 'Refresh',
+                        iconOnly: false
+                    }
+                ]}
+            />
 
             {systemStats && (
                 <Paper sx={{ p: 2, mb: 3 }}>
@@ -762,14 +749,27 @@ const PatternManager = () => {
                             <Typography variant="body2" color="textSecondary" gutterBottom>
                                 Create your first pattern to start extracting metadata from files
                             </Typography>
-                            <Button
-                                variant="contained"
-                                startIcon={<Add />}
-                                onClick={handleCreatePattern}
-                                sx={{ mt: 2 }}
-                            >
-                                Create First Pattern
-                            </Button>
+                            <Box sx={{ mt: 2 }}>
+                                <button
+                                    onClick={handleCreatePattern}
+                                    style={{
+                                        padding: '12px 24px',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        background: '#1976d2',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        fontSize: '14px',
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        margin: '0 auto'
+                                    }}
+                                >
+                                    <Add /> Create First Pattern
+                                </button>
+                            </Box>
                         </Paper>
                     ) : (
                         <Box>
@@ -789,18 +789,6 @@ const PatternManager = () => {
                     )}
                 </>
             )}
-
-            <Fab
-                color="primary"
-                onClick={handleCreatePattern}
-                sx={{
-                    position: 'fixed',
-                    bottom: 16,
-                    right: 16
-                }}
-            >
-                <Add />
-            </Fab>
 
             <PatternFormDialog
                 open={formDialog.open}

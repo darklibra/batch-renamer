@@ -70,11 +70,16 @@ class FileRepository:
             self.db.refresh(file_obj)
         return file_obj
     
-    def get_files_by_pattern(self, pattern_id: int) -> List[IndexedFile]:
+    def get_files_by_pattern(self, pattern_id: int, limit: Optional[int] = None) -> List[IndexedFile]:
         """Get files that match a specific pattern"""
-        return self.db.query(IndexedFile).filter(
+        query = self.db.query(IndexedFile).filter(
             IndexedFile.pattern_id == pattern_id
-        ).all()
+        )
+        
+        if limit:
+            query = query.limit(limit)
+            
+        return query.all()
     
     def get_files_paginated(self, 
                            page: int = 1, 
