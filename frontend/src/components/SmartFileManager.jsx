@@ -160,21 +160,11 @@ const SmartFileManager = ({ selectedFileIds, onOperationComplete }) => {
                 // Use sample file if available
                 const sampleFileId = selectedFileIds && selectedFileIds.length > 0 ? selectedFileIds[0] : null;
                 
-                // Debug: Template validation
-                console.log('Validating template:', {
-                    template: filenameTemplate,
-                    sampleFileId,
-                    selectedPatternId
-                });
-                
                 const result = await dataProvider.validateFilenameTemplate(
                     filenameTemplate,
                     sampleFileId,
                     selectedPatternId
                 );
-                
-                // Debug: Validation result
-                console.log('Validation result:', result);
                 setTemplateValidation(result);
                 setValidationError(result.is_valid ? null : result.error_message);
             } catch (error) {
@@ -404,7 +394,7 @@ const SmartFileManager = ({ selectedFileIds, onOperationComplete }) => {
                                                 setError(null);
                                                 const result = await dataProvider.applyPatternToFiles(selectedFileIds, selectedPatternId);
                                                 // Debug: Pattern application result
-                                                console.log('Pattern applied:', result);
+                                                // Pattern applied successfully
                                                 // Show success message or update UI
                                             } catch (error) {
                                                 setError(`Failed to apply pattern: ${error.message}`);
@@ -707,7 +697,7 @@ const SmartFileManager = ({ selectedFileIds, onOperationComplete }) => {
                             onClick={() => {
                                 // Set dummy file IDs for testing
                                 // Debug: Test mode activation
-                                console.log('Setting dummy file IDs for testing');
+                                // Development: Setting test file IDs
                                 // This would normally come from the parent component
                                 if (window.location.search.includes('test=true')) {
                                     window.location.href = '?selectedFiles=2763,2762,2761';

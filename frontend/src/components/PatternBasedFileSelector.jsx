@@ -162,7 +162,7 @@ const PatternBasedFileSelector = ({
             };
             
             await dataProvider.recordPatternSelection(selectedPatternId, fileIds, selectionContext);
-            console.log('Selection recorded successfully');
+            // Selection recorded successfully
         } catch (error) {
             console.error('Failed to record selection:', error);
         }

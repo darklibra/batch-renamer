@@ -3,7 +3,6 @@ Service layer for Smart File Operations business logic
 """
 import uuid
 import shutil
-import asyncio
 import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional

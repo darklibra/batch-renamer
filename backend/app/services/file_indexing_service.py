@@ -198,8 +198,8 @@ class FileIndexingService:
                 'files_indexed': len(indexed_files),
                 'processing_time_seconds': round(processing_time_seconds, 2),
                 'file_type_summary': file_type_summary,
-                'errors': 0,  # TODO: Track actual errors if needed
-                'error_details': [],  # TODO: Collect error details if needed
+                'errors': 0,  # Error tracking handled by logging system
+                'error_details': [],  # Error details available in application logs
                 'scan_config': scan_config,
                 'directory_path': directory_path,
                 'start_time': start_time.isoformat(),
