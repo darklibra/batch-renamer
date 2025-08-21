@@ -4,13 +4,19 @@ import {
     LinearProgress, Chip, Alert, Table, TableBody, TableCell, TableHead, TableRow,
     Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tooltip,
     Accordion, AccordionSummary, AccordionDetails, Badge, TextField, MenuItem,
-    Button, Divider
+    Button, Divider, FormControl, InputLabel, Select
 } from '@mui/material';
 import {
     PlayArrow, Stop, Refresh, Visibility, Cancel, CheckCircle, Error as ErrorIcon,
     Warning, Info, Schedule, TrendingUp, Speed, Storage, Timer,
-    ExpandMore, Close, Analytics, Assignment, FilterList
+    ExpandMore, Close, Analytics, Assignment, FilterList, NavigateBefore, NavigateNext
 } from '@mui/icons-material';
+import { PageHeader } from '../components/common';
+import { PageContainer, PageContent, ResponsiveGrid } from '../components/layout/index.js';
+import { JobsHeader } from '../components/headers/index.js';
+import JobFilterCard from '../components/common/JobFilterCard.jsx';
+import JobActionBar from '../components/common/JobActionBar.jsx';
+import useJobFilters from '../hooks/useJobFilters.js';
 import dataProvider from '../dataProvider';
 
 // ===========================================
@@ -311,87 +317,73 @@ const JobStatistics = () => {
     }
 
     return (
-        <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                <Analytics sx={{ mr: 1 }} />
+        <Box sx={{ mb: 3 }}>
+            {/* Job Statistics */}
+            <Typography variant="h5" sx={{ mb: 2 }}>
                 Job Statistics
             </Typography>
-            
-            <Grid container spacing={2}>
-                <Grid item xs={6} md={2}>
-                    <Card>
-                        <CardContent sx={{ textAlign: 'center' }}>
-                            <Typography variant="h4" color="primary">
-                                {stats.total_jobs}
-                            </Typography>
-                            <Typography variant="body2">
-                                Total Jobs
-                            </Typography>
+            <ResponsiveGrid
+                breakpoints={{ xs: 1, sm: 2, md: 3, lg: 6 }}
+                spacing={3}
+            >
+                {[
+                    {
+                        title: 'Total Jobs',
+                        value: stats.total_jobs,
+                        color: 'primary',
+                        icon: <Analytics />
+                    },
+                    {
+                        title: 'Completed',
+                        value: stats.completed_jobs,
+                        color: 'success.main',
+                        icon: <CheckCircle />
+                    },
+                    {
+                        title: 'Failed',
+                        value: stats.failed_jobs,
+                        color: 'error.main',
+                        icon: <ErrorIcon />
+                    },
+                    {
+                        title: 'Active',
+                        value: stats.active_jobs,
+                        color: 'warning.main',
+                        icon: <Schedule />
+                    },
+                    {
+                        title: 'Success Rate',
+                        value: `${stats.success_rate.toFixed(1)}%`,
+                        color: stats.success_rate > 80 ? 'success.main' : 'warning.main',
+                        icon: <TrendingUp />
+                    },
+                    {
+                        title: 'Files Processed',
+                        value: stats.total_files_processed,
+                        color: 'info.main',
+                        icon: <Storage />
+                    }
+                ].map((stat, index) => (
+                    <Card key={index} sx={{ height: '100%' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <Box sx={{ mr: 2, color: stat.color }}>
+                                    {stat.icon}
+                                </Box>
+                                <Box>
+                                    <Typography variant="h4" color={stat.color}>
+                                        {stat.value}
+                                    </Typography>
+                                    <Typography variant="body2" color="textSecondary">
+                                        {stat.title}
+                                    </Typography>
+                                </Box>
+                            </Box>
                         </CardContent>
                     </Card>
-                </Grid>
-                <Grid item xs={6} md={2}>
-                    <Card>
-                        <CardContent sx={{ textAlign: 'center' }}>
-                            <Typography variant="h4" color="success.main">
-                                {stats.completed_jobs}
-                            </Typography>
-                            <Typography variant="body2">
-                                Completed
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid item xs={6} md={2}>
-                    <Card>
-                        <CardContent sx={{ textAlign: 'center' }}>
-                            <Typography variant="h4" color="error.main">
-                                {stats.failed_jobs}
-                            </Typography>
-                            <Typography variant="body2">
-                                Failed
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid item xs={6} md={2}>
-                    <Card>
-                        <CardContent sx={{ textAlign: 'center' }}>
-                            <Typography variant="h4" color="warning.main">
-                                {stats.active_jobs}
-                            </Typography>
-                            <Typography variant="body2">
-                                Active
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid item xs={6} md={2}>
-                    <Card>
-                        <CardContent sx={{ textAlign: 'center' }}>
-                            <Typography variant="h4">
-                                {stats.success_rate.toFixed(1)}%
-                            </Typography>
-                            <Typography variant="body2">
-                                Success Rate
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid item xs={6} md={2}>
-                    <Card>
-                        <CardContent sx={{ textAlign: 'center' }}>
-                            <Typography variant="h4">
-                                {stats.total_files_processed}
-                            </Typography>
-                            <Typography variant="body2">
-                                Files Processed
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
-        </Paper>
+                ))}
+            </ResponsiveGrid>
+        </Box>
     );
 };
 
@@ -455,10 +447,11 @@ const JobListPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [monitorJobId, setMonitorJobId] = useState(null);
-    const [filterStatus, setFilterStatus] = useState('');
-    const [filterType, setFilterType] = useState('');
     const [page, setPage] = useState(1);
     const [totalJobs, setTotalJobs] = useState(0);
+    
+    // 새로운 필터 훅 사용
+    const jobFilters = useJobFilters();
 
     const fetchJobs = async () => {
         try {
@@ -466,8 +459,7 @@ const JobListPage = () => {
             const params = {
                 page,
                 per_page: 20,
-                ...(filterStatus && { status: filterStatus }),
-                ...(filterType && { job_type: filterType })
+                ...jobFilters.getApiParams()
             };
             
             const result = await dataProvider.getJobs(params);
@@ -484,7 +476,7 @@ const JobListPage = () => {
 
     useEffect(() => {
         fetchJobs();
-    }, [page, filterStatus, filterType]);
+    }, [page, jobFilters.appliedFilters]);
 
     const getStatusChip = (status) => {
         const statusConfig = {
@@ -527,70 +519,67 @@ const JobListPage = () => {
         return null;
     };
 
+    // Job 통계 계산
+    const calculateJobStats = () => {
+        return {
+            totalJobs: jobs.length,
+            activeJobs: jobs.filter(job => ['started', 'processing'].includes(job.status)).length,
+            completedJobs: jobs.filter(job => job.status === 'completed').length,
+            failedJobs: jobs.filter(job => job.status === 'error').length
+        };
+    };
+
     return (
-        <Box>
-            <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                <Assignment sx={{ mr: 1 }} />
-                Jobs Management
-            </Typography>
+        <PageContainer>
+            <JobsHeader
+                title="Jobs Management"
+                subtitle="Monitor and manage background jobs and processing tasks"
+                jobStats={calculateJobStats()}
+                lastUpdated={new Date()}
+                onRefresh={fetchJobs}
+                onFilterToggle={() => {/* 필터 토글 구현 예정 */}}
+                quickActions={[
+                    {
+                        label: 'Clear Filters',
+                        onClick: jobFilters.clearFilters,
+                        variant: 'outlined',
+                        size: 'small',
+                        disabled: !jobFilters.hasActiveFilters
+                    }
+                ]}
+                showJobStats={true}
+                showLastUpdated={true}
+            />
 
-            {/* Statistics */}
-            <JobStatistics />
+            <PageContent>
+                {/* Statistics */}
+                <JobStatistics />
 
-            {/* Filters */}
-            <Paper sx={{ p: 2, mb: 2 }}>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                    <FilterList sx={{ mr: 1 }} />
-                    Filters
-                </Typography>
-                <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
-                        <TextField
-                            select
-                            fullWidth
-                            label="Status"
-                            value={filterStatus}
-                            onChange={(e) => setFilterStatus(e.target.value)}
-                            size="small"
-                        >
-                            <MenuItem value="">All Statuses</MenuItem>
-                            <MenuItem value="started">Started</MenuItem>
-                            <MenuItem value="processing">Processing</MenuItem>
-                            <MenuItem value="completed">Completed</MenuItem>
-                            <MenuItem value="error">Error</MenuItem>
-                            <MenuItem value="cancelled">Cancelled</MenuItem>
-                        </TextField>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <TextField
-                            select
-                            fullWidth
-                            label="Job Type"
-                            value={filterType}
-                            onChange={(e) => setFilterType(e.target.value)}
-                            size="small"
-                        >
-                            <MenuItem value="">All Types</MenuItem>
-                            <MenuItem value="batch_extract">Batch Extract</MenuItem>
-                            <MenuItem value="reapply_pattern">Reapply Pattern</MenuItem>
-                            <MenuItem value="test_pattern">Test Pattern</MenuItem>
-                            <MenuItem value="indexing_directory_scan">Directory Scan</MenuItem>
-                        </TextField>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <Button
-                            variant="outlined"
-                            onClick={fetchJobs}
-                            startIcon={<Refresh />}
-                            fullWidth
-                        >
-                            Refresh
-                        </Button>
-                    </Grid>
-                </Grid>
-            </Paper>
+                {/* New Filter Card */}
+                <JobFilterCard
+                    filterStatus={jobFilters.status}
+                    filterType={jobFilters.type}
+                    onStatusChange={(e) => jobFilters.setStatus(e.target.value)}
+                    onTypeChange={(e) => jobFilters.setType(e.target.value)}
+                    onClearFilters={jobFilters.clearFilters}
+                    onApplyFilters={jobFilters.applyFilters}
+                    hasChanges={jobFilters.hasChanges}
+                />
+
+                {/* New Action Bar */}
+                <JobActionBar
+                    onRefresh={fetchJobs}
+                    totalJobs={totalJobs}
+                    filteredJobs={jobs.length}
+                    loading={loading}
+                    lastUpdated={new Date()}
+                />
 
             {/* Jobs Table */}
+            <Typography variant="h5" sx={{ mb: 2 }}>
+                Jobs List
+            </Typography>
+            
             {error && (
                 <Alert severity="error" sx={{ mb: 2 }}>
                     Failed to load jobs: {error}
@@ -598,11 +587,14 @@ const JobListPage = () => {
             )}
 
             {loading ? (
-                <Paper sx={{ p: 2 }}>
-                    <LinearProgress />
-                </Paper>
+                <Card sx={{ p: 3, textAlign: 'center' }}>
+                    <LinearProgress sx={{ mb: 2 }} />
+                    <Typography variant="body2" color="textSecondary">
+                        Loading jobs...
+                    </Typography>
+                </Card>
             ) : (
-                <Paper>
+                <Card>
                     <Table>
                         <TableHead>
                             <TableRow>
@@ -701,29 +693,50 @@ const JobListPage = () => {
                         </TableBody>
                     </Table>
                     
-                    {/* Pagination */}
+                    {/* Pagination - 표준화된 스타일 */}
                     {totalJobs > 20 && (
-                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
-                            <Button 
-                                disabled={page <= 1}
-                                onClick={() => setPage(page - 1)}
-                                sx={{ mr: 1 }}
+                        <CardContent sx={{ borderTop: 1, borderColor: 'divider' }}>
+                            <ResponsiveGrid
+                                breakpoints={{ xs: 1, sm: 3, md: 3 }}
+                                spacing={2}
+                                sx={{ alignItems: 'center' }}
                             >
-                                Previous
-                            </Button>
-                            <Typography sx={{ mx: 2, alignSelf: 'center' }}>
-                                Page {page} of {Math.ceil(totalJobs / 20)}
-                            </Typography>
-                            <Button 
-                                disabled={page >= Math.ceil(totalJobs / 20)}
-                                onClick={() => setPage(page + 1)}
-                                sx={{ ml: 1 }}
-                            >
-                                Next
-                            </Button>
-                        </Box>
+                                <Box sx={{ display: 'flex', justifyContent: { xs: 'center', sm: 'flex-start' } }}>
+                                    <Button 
+                                        disabled={page <= 1}
+                                        onClick={() => setPage(page - 1)}
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<NavigateBefore />}
+                                    >
+                                        Previous
+                                    </Button>
+                                </Box>
+                                
+                                <Box sx={{ textAlign: 'center' }}>
+                                    <Typography variant="body2" color="textSecondary">
+                                        Page {page} of {Math.ceil(totalJobs / 20)}
+                                    </Typography>
+                                    <Typography variant="caption" color="textSecondary">
+                                        Showing {Math.min(20, totalJobs - (page - 1) * 20)} of {totalJobs} jobs
+                                    </Typography>
+                                </Box>
+                                
+                                <Box sx={{ display: 'flex', justifyContent: { xs: 'center', sm: 'flex-end' } }}>
+                                    <Button 
+                                        disabled={page >= Math.ceil(totalJobs / 20)}
+                                        onClick={() => setPage(page + 1)}
+                                        variant="outlined"
+                                        size="small"
+                                        endIcon={<NavigateNext />}
+                                    >
+                                        Next
+                                    </Button>
+                                </Box>
+                            </ResponsiveGrid>
+                        </CardContent>
                     )}
-                </Paper>
+                </Card>
             )}
 
             {/* Job Monitor Dialog */}
@@ -732,7 +745,8 @@ const JobListPage = () => {
                 open={!!monitorJobId}
                 onClose={() => setMonitorJobId(null)}
             />
-        </Box>
+            </PageContent>
+        </PageContainer>
     );
 };
 
