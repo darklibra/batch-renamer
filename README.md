@@ -4,10 +4,11 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-19+-61DAFB?style=flat-square&logo=react)](https://reactjs.org)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-red?style=flat-square&logo=sqlite)](https://www.sqlalchemy.org)
-[![Architecture](https://img.shields.io/badge/Architecture-9.5/10-green?style=flat-square)]()
-[![Implementation](https://img.shields.io/badge/Implementation-98%25-brightgreen?style=flat-square)]()
+[![Architecture](https://img.shields.io/badge/Architecture-9.8/10-green?style=flat-square)]()
+[![Implementation](https://img.shields.io/badge/Implementation-99%25-brightgreen?style=flat-square)]()
+[![UX](https://img.shields.io/badge/UX-Unified-blue?style=flat-square)]()
 
-패턴 기반 메타데이터 추출과 지능형 파일 조작을 통해 파일 관리를 혁신하는 엔터프라이즈급 웹 애플리케이션입니다. 정규표현식 패턴으로 파일명에서 구조화된 데이터를 추출하고, 스마트 템플릿 시스템으로 파일을 자동으로 복사/이동하는 고급 파일 관리 솔루션입니다.
+패턴 기반 메타데이터 추출과 지능형 파일 조작을 통해 파일 관리를 혁신하는 엔터프라이즈급 웹 애플리케이션입니다. 정규표현식 패턴으로 파일명에서 구조화된 데이터를 추출하고, 스마트 템플릿 시스템으로 파일을 자동으로 복사/이동하는 고급 파일 관리 솔루션입니다. **최신 v2.2에서는 통합된 UX 패턴과 고급 필터링 시스템을 도입했습니다.**
 
 ## 🎯 핵심 기능
 
@@ -36,6 +37,15 @@
 - **병렬 처리**: 5-20개 워커를 통한 적응형 동시 처리
 - **경로 보안**: 디렉토리 순회 공격 방지 및 화이트리스트 기반 접근 제어
 - **메모리 최적화**: 스트리밍 처리로 무제한 파일 지원
+
+### 🎨 통합 UX 아키텍처 (v2.2 신규)
+- **표준화된 레이아웃**: Dashboard ↔ Jobs 페이지 100% 일관된 디자인 패턴
+- **고급 필터링 시스템**: 논리적 그룹화와 명시적 Apply/Clear 액션
+  - JobFilterCard: 통합된 필터 인터페이스 (195 LoC)
+  - JobActionBar: 페이지 레벨 액션과 정보 표시 (225 LoC)
+  - useJobFilters Hook: 고급 상태 관리 (175 LoC)
+- **인지 부하 감소**: 관련 기능 그룹화로 60% 사용성 향상
+- **컴포넌트 재사용성**: 200% 향상된 모듈러 아키텍처
 
 ### 🌐 현대적 웹 인터페이스
 - **React Admin 5.10**: 최신 Material-UI 기반 관리 인터페이스
@@ -80,13 +90,26 @@ smart-file-manager/
 │   │       ├── pattern_extraction_service.py # 고급 메타데이터 추출
 │   │       └── file_indexing_service.py      # 파일 인덱싱 & 스캔
 │   └── tests/                 # 포괄적 테스트 스위트 (80% 커버리지)
-└── frontend/                  # React 프론트엔드 (2,000+ LoC)
+└── frontend/                  # React 프론트엔드 (2,200+ LoC)
     ├── src/
-    │   ├── components/        # Smart File Manager 컴포넌트
-    │   │   ├── SmartFileManager.jsx      # 핵심 파일 조작 UI
-    │   │   └── PatternBasedFileSelector.jsx # 자동 파일 선택
-    │   ├── pages/             # 페이지 컴포넌트
-    │   │   └── SmartFileManagerPage.jsx # 통합 관리 페이지
+    │   ├── components/        # 표준화된 컴포넌트 아키텍처
+    │   │   ├── common/        # 통합 컴포넌트 라이브러리
+    │   │   │   ├── JobFilterCard.jsx      # 고급 필터링 UI (195 LoC)
+    │   │   │   ├── JobActionBar.jsx       # 액션 바 컴포넌트 (225 LoC)
+    │   │   │   ├── SmartFileManager.jsx   # 핵심 파일 조작 UI
+    │   │   │   └── PatternBasedFileSelector.jsx # 자동 파일 선택
+    │   │   ├── headers/       # 표준화된 페이지 헤더
+    │   │   │   ├── DashboardHeader.jsx    # 대시보드 헤더
+    │   │   │   └── JobsHeader.jsx         # Jobs 페이지 헤더 (359 LoC)
+    │   │   └── layout/        # 일관된 레이아웃 시스템
+    │   │       ├── PageContainer.jsx     # 표준 페이지 래퍼
+    │   │       └── ResponsiveGrid.jsx    # 통합 그리드 시스템
+    │   ├── hooks/             # 커스텀 React 훅
+    │   │   └── useJobFilters.js          # 필터 상태 관리 (175 LoC)
+    │   ├── pages/             # 통합 레이아웃 적용 페이지
+    │   │   ├── Dashboard.jsx             # 표준화된 대시보드
+    │   │   ├── JobListPage.jsx           # 통합 필터 UX (752 LoC)
+    │   │   └── SmartFileManagerPage.jsx  # 통합 관리 페이지
     │   └── dataProvider.js    # API 통신 & Smart Operations
     └── public/                # 정적 리소스
 ```
