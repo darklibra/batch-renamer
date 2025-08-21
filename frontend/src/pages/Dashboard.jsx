@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   Typography,
-  Grid,
   Button,
   CircularProgress,
   Alert
@@ -15,9 +14,14 @@ import {
   Pattern,
   Analytics,
   Security,
-  FolderOpen
+  FolderOpen,
+  Refresh
 } from '@mui/icons-material';
 import dataProvider from '../dataProvider';
+
+// New standardized components
+import { PageContainer, PageContent, ResponsiveGrid } from '../components/layout/index.js';
+import { DashboardHeader } from '../components/headers/index.js';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -30,36 +34,31 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const result = await dataProvider.getSystemOverview();
+      setStats(result);
+      setError(null);
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error);
+      setError('Failed to load dashboard statistics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true);
-        const result = await dataProvider.getSystemOverview();
-        setStats(result);
-        setError(null);
-      } catch (error) {
-        console.error('Failed to fetch dashboard stats:', error);
-        setError('Failed to load dashboard statistics');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStats();
   }, []);
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box p={3}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
+      <PageContainer>
+        <PageContent sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+          <CircularProgress />
+        </PageContent>
+      </PageContainer>
     );
   }
 
@@ -122,16 +121,42 @@ const Dashboard = () => {
   ];
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Clear File Dashboard
-      </Typography>
-      
-      {/* Statistics Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {statCards.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <Card>
+    <PageContainer>
+      {/* Enhanced Dashboard Header */}
+      <DashboardHeader
+        title="Clear File Dashboard"
+        subtitle="Manage files, patterns, and organize your data efficiently"
+        systemStatus="healthy"
+        lastUpdated={new Date()}
+        quickActions={[
+          {
+            label: 'Scan',
+            icon: <FolderOpen />,
+            onClick: () => navigate('/scanner'),
+            variant: 'outlined',
+            size: 'small'
+          }
+        ]}
+        onRefresh={fetchStats}
+        showSystemStatus={true}
+        showLastUpdated={true}
+      />
+
+      <PageContent>
+        {/* Error Alert */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Statistics Cards */}
+        <ResponsiveGrid
+          breakpoints={{ xs: 1, sm: 2, md: 4, lg: 4 }}
+          spacing={3}
+        >
+          {statCards.map((stat, index) => (
+            <Card key={index} sx={{ height: '100%' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <Box sx={{ mr: 2 }}>
@@ -148,19 +173,20 @@ const Dashboard = () => {
                 </Box>
               </CardContent>
             </Card>
-          </Grid>
-        ))}
-      </Grid>
+          ))}
+        </ResponsiveGrid>
 
-      {/* Quick Actions */}
-      <Typography variant="h5" gutterBottom>
-        Quick Actions
-      </Typography>
-      <Grid container spacing={3}>
-        {quickActions.map((action, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <Card>
-              <CardContent>
+        {/* Quick Actions Section */}
+        <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>
+          Quick Actions
+        </Typography>
+        <ResponsiveGrid
+          breakpoints={{ xs: 1, sm: 2, md: 4, lg: 4 }}
+          spacing={3}
+        >
+          {quickActions.map((action, index) => (
+            <Card key={index} sx={{ height: '100%' }}>
+              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <Box sx={{ mr: 1 }}>
                     {action.icon}
@@ -169,7 +195,7 @@ const Dashboard = () => {
                     {action.title}
                   </Typography>
                 </Box>
-                <Typography variant="body2" color="textSecondary" paragraph>
+                <Typography variant="body2" color="textSecondary" paragraph sx={{ flex: 1 }}>
                   {action.description}
                 </Typography>
                 <Button
@@ -182,10 +208,10 @@ const Dashboard = () => {
                 </Button>
               </CardContent>
             </Card>
-          </Grid>
-        ))}
-      </Grid>
-    </Box>
+          ))}
+        </ResponsiveGrid>
+      </PageContent>
+    </PageContainer>
   );
 };
 

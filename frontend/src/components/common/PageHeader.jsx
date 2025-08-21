@@ -15,7 +15,7 @@ export const PageHeader = ({
   secondaryActions = [],
   searchProps = null,
   showSearch = false,
-  spacing = 3,
+  spacing = 2,
   ...props 
 }) => {
   // Format title with count if provided

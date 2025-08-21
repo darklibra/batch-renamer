@@ -45,6 +45,7 @@ import {
 } from '@mui/icons-material';
 
 import { PageHeader } from '../components/common';
+import { PageContainer, PageContent } from '../components/layout/index.js';
 import { BackButton } from '../components/common/ActionButtons';
 import smartOperationsApi, { 
   getStatusColor, 
@@ -414,9 +415,11 @@ const SmartOperationDetailsPage = () => {
 
   if (!operation) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">Operation not found</Alert>
-      </Box>
+      <PageContainer>
+        <PageContent>
+          <Alert severity="error">Operation not found</Alert>
+        </PageContent>
+      </PageContainer>
     );
   }
 
@@ -424,7 +427,7 @@ const SmartOperationDetailsPage = () => {
   const canDelete = operation.status === OPERATION_STATUS.PENDING;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <PageContainer>
       <PageHeader
         title="Smart Operation Details"
         primaryAction={{
@@ -454,6 +457,7 @@ const SmartOperationDetailsPage = () => {
         ]}
       />
 
+      <PageContent>
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}
@@ -480,7 +484,8 @@ const SmartOperationDetailsPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+      </PageContent>
+    </PageContainer>
   );
 };
 

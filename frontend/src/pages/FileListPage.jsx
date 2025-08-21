@@ -17,6 +17,7 @@ import {
   FolderOpen
 } from '@mui/icons-material';
 import { PageHeader, StandardCardActions } from '../components/common';
+import { PageContainer, PageContent, ResponsiveGrid } from '../components/layout/index.js';
 import dataProvider from '../dataProvider';
 
 const FileListPage = () => {
@@ -106,7 +107,7 @@ const FileListPage = () => {
   }
 
   return (
-    <Box>
+    <PageContainer>
       <PageHeader
         title="Files"
         count={total}
@@ -123,11 +124,12 @@ const FileListPage = () => {
         }}
       />
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      <PageContent>
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
 
       {files.length === 0 && !loading ? (
         <Box textAlign="center" py={6}>
@@ -164,10 +166,9 @@ const FileListPage = () => {
         </Box>
       ) : (
         <>
-          <Grid container spacing={3}>
+          <ResponsiveGrid breakpoints={{ xs: 1, sm: 2, md: 3, lg: 4 }} spacing={3}>
             {Array.isArray(files) && files.map((file) => (
-              <Grid item xs={12} sm={6} md={4} key={file.id}>
-                <Card>
+                <Card key={file.id}>
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                       <FilePresent sx={{ mr: 1, color: 'primary.main' }} />
@@ -214,9 +215,8 @@ const FileListPage = () => {
                     layout="grouped"
                   />
                 </Card>
-              </Grid>
             ))}
-          </Grid>
+          </ResponsiveGrid>
 
           {totalPages > 1 && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -236,7 +236,8 @@ const FileListPage = () => {
           )}
         </>
       )}
-    </Box>
+      </PageContent>
+    </PageContainer>
   );
 };
 

@@ -19,6 +19,7 @@ import {
   Add
 } from '@mui/icons-material';
 import { PageHeader, StandardCardActions } from '../components/common';
+import { PageContainer, PageContent, ResponsiveGrid } from '../components/layout/index.js';
 import dataProvider from '../dataProvider';
 
 const PatternListPage = () => {
@@ -89,7 +90,7 @@ const PatternListPage = () => {
   }
 
   return (
-    <Box>
+    <PageContainer>
       <PageHeader
         title="Patterns"
         count={total}
@@ -106,11 +107,12 @@ const PatternListPage = () => {
         }}
       />
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      <PageContent>
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
 
       {patterns.length === 0 && !loading ? (
         <Box textAlign="center" py={6}>
@@ -146,10 +148,9 @@ const PatternListPage = () => {
         </Box>
       ) : (
         <>
-          <Grid container spacing={3}>
+          <ResponsiveGrid breakpoints={{ xs: 1, sm: 2, md: 3, lg: 4 }} spacing={3}>
             {patterns.map((pattern) => (
-              <Grid item xs={12} sm={6} md={4} key={pattern.id}>
-                <Card>
+                <Card key={pattern.id}>
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                       <Pattern sx={{ mr: 1, color: 'primary.main' }} />
@@ -214,9 +215,8 @@ const PatternListPage = () => {
                     layout="grouped"
                   />
                 </Card>
-              </Grid>
             ))}
-          </Grid>
+          </ResponsiveGrid>
 
           {totalPages > 1 && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -236,7 +236,8 @@ const PatternListPage = () => {
           )}
         </>
       )}
-    </Box>
+      </PageContent>
+    </PageContainer>
   );
 };
 

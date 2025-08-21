@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 
 import { PageHeader } from '../components/common';
+import { PageContainer, PageContent } from '../components/layout/index.js';
 import { CreateButton, BackButton } from '../components/common/ActionButtons';
 import smartOperationsApi, { OPERATION_TYPE } from '../services/smartOperationsApi';
 import dataProvider from '../dataProvider';
@@ -429,7 +430,7 @@ const SmartOperationCreatePage = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <PageContainer>
       <PageHeader
         title="Create Smart Operation"
         subtitle="Set up automated file copy or move operations based on patterns"
@@ -440,11 +441,12 @@ const SmartOperationCreatePage = () => {
         }}
       />
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+      <PageContent>
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
       {/* Progress Stepper */}
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -490,7 +492,8 @@ const SmartOperationCreatePage = () => {
           )}
         </Box>
       </Box>
-    </Box>
+      </PageContent>
+    </PageContainer>
   );
 };
 

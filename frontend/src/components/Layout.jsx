@@ -22,6 +22,7 @@ import {
   Menu as MenuIcon
 } from '@mui/icons-material';
 import { navigationItems, routeGroups } from '../routes/routes.config.js';
+import { ThemeSwitcher } from '../themes/index.js';
 
 const drawerWidth = 240;
 
@@ -116,9 +117,14 @@ const Layout = ({ children }) => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Clear File Management System
           </Typography>
+          
+          {/* Theme Switcher in AppBar */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ThemeSwitcher variant="selector" color="inherit" />
+          </Box>
         </Toolbar>
       </AppBar>
       

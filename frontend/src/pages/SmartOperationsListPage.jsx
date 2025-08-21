@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 
 import { PageHeader } from '../components/common';
+import { PageContainer, PageContent, ResponsiveGrid } from '../components/layout/index.js';
 import { CreateButton, IconActionButton } from '../components/common/ActionButtons';
 import smartOperationsApi, { 
   getStatusColor, 
@@ -285,7 +286,7 @@ const SmartOperationsListPage = () => {
   );
 
   return (
-    <Box sx={{ p: 3 }}>
+    <PageContainer>
       <PageHeader
         title="Smart Operations"
         count={total}
@@ -309,7 +310,8 @@ const SmartOperationsListPage = () => {
         ]}
       />
 
-      {/* Filters */}
+      <PageContent>
+        {/* Filters */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <FormControl size="small" sx={{ minWidth: 120 }}>
           <InputLabel>Status</InputLabel>
@@ -433,7 +435,8 @@ const SmartOperationsListPage = () => {
           </MenuItem>
         )}
       </Menu>
-    </Box>
+      </PageContent>
+    </PageContainer>
   );
 };
 

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import files, patterns, smart_operations
 from app.core.database import create_tables
+from app.infrastructure.configuration import initialize_services, check_services_health
 
 # Create FastAPI app
 app = FastAPI(
@@ -19,10 +20,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create database tables on startup
+# Create database tables and initialize services on startup
 @app.on_event("startup")
 def startup_event():
     create_tables()
+    initialize_services()
 
 # Include routers
 app.include_router(files.router, prefix="/api/v1", tags=["files"])
@@ -40,4 +42,17 @@ def read_root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "service": "clear-file-api"}
+    """Enhanced health check with service status"""
+    services_health = check_services_health()
+    
+    overall_status = "healthy" if all([
+        services_health['pattern_extractor'],
+        services_health['pattern_matcher'],
+        services_health['pattern_cache']
+    ]) else "degraded"
+    
+    return {
+        "status": overall_status,
+        "service": "clear-file-api",
+        "services": services_health
+    }

@@ -1,59 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Box,
     Card,
     CardContent,
     Typography,
-    Button,
-    TextField,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    Chip,
     Alert,
-    Grid,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Paper,
-    Checkbox,
-    IconButton,
-    Tooltip,
-    Pagination,
-    LinearProgress,
-    FormControlLabel,
-    Switch,
-    Accordion,
-    AccordionSummary,
-    AccordionDetails,
-    Badge,
     Divider
 } from '@mui/material';
 import {
-    Search,
-    FilterList,
-    SelectAll,
-    ClearAll,
-    Refresh,
     DriveFileMoveOutlined,
-    FilePresent,
-    Preview,
-    ExpandMore,
-    Info,
     CheckCircle,
-    Error as ErrorIcon,
-    Settings,
-    Dashboard as DashboardIcon,
-    ArrowBack,
     Pattern
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import dataProvider from '../dataProvider';
 import SmartFileManager from '../components/SmartFileManager';
+
+// New standardized components
+import { PageContainer, PageContent, ResponsiveGrid } from '../components/layout/index.js';
+import { WorkflowHeader } from '../components/headers/index.js';
 
 const SmartFileManagerPage = () => {
     const navigate = useNavigate();
@@ -161,143 +125,93 @@ const SmartFileManagerPage = () => {
     };
 
 
+    // Determine workflow status
+    const getWorkflowStatus = () => {
+        if (operationComplete) return 'completed';
+        if (error) return 'error';
+        if (loading) return 'in_progress';
+        return 'pending';
+    };
+
     return (
-        <Box sx={{ maxWidth: 1400, mx: 'auto', p: 2 }}>
-            {/* Header with Breadcrumb - Pattern-only Mode */}
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                {/* Breadcrumb Navigation */}
-                <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
-                    <Button
-                        variant="text"
-                        startIcon={<ArrowBack />}
-                        onClick={handleBackToPatternDetails}
-                        sx={{ 
-                            color: 'text.secondary',
-                            textTransform: 'none',
-                            fontSize: '0.875rem'
-                        }}
-                    >
-                        Pattern Details
-                    </Button>
-                    <Typography variant="body2" sx={{ mx: 1, color: 'text.secondary' }}>
-                        /
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500 }}>
-                        File Operations
-                    </Typography>
-                </Box>
-                
-                <DriveFileMoveOutlined sx={{ mr: 2, color: 'primary.main', fontSize: 32 }} />
-                <Box>
-                    <Typography variant="h4">
-                        Pattern-Based File Operations
-                    </Typography>
-                    <Typography variant="body1" color="textSecondary">
-                        {selectedPatternInfo 
-                            ? `Organize files using "${selectedPatternInfo.name}" pattern`
-                            : 'Pattern-based file organization and management'
-                        }
-                    </Typography>
-                </Box>
-            </Box>
+        <PageContainer>
+            {/* Enhanced Workflow Header */}
+            <WorkflowHeader
+                title="Pattern-Based File Operations"
+                subtitle={selectedPatternInfo 
+                    ? `Organize files using "${selectedPatternInfo.name}" pattern`
+                    : 'Pattern-based file organization and management'
+                }
+                breadcrumbs={[
+                    {
+                        label: 'Patterns',
+                        onClick: () => navigate('/patterns')
+                    },
+                    {
+                        label: selectedPatternInfo?.name || 'Pattern Details',
+                        onClick: handleBackToPatternDetails
+                    },
+                    {
+                        label: 'File Operations'
+                    }
+                ]}
+                status={getWorkflowStatus()}
+                statusMessage={
+                    operationComplete ? 'Smart file operation completed successfully!' :
+                    error ? error :
+                    loading ? 'Loading pattern files...' :
+                    selectedPatternInfo ? `Ready to organize ${selectedFileIds.length} files` :
+                    undefined
+                }
+                onBack={handleBackToPatternDetails}
+                showProgress={false}
+            />
 
-            {/* Success Message */}
-            {operationComplete && (
-                <Alert severity="success" sx={{ mb: 3 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <CheckCircle sx={{ mr: 1 }} />
-                        Smart file operation completed successfully!
-                    </Box>
-                </Alert>
-            )}
+            <PageContent>
+                {/* Pattern Information Alert */}
+                {selectedPatternInfo && (
+                    <Alert severity="info" sx={{ mb: 3 }}>
+                        <Typography variant="body2">
+                            <Pattern sx={{ mr: 1, verticalAlign: 'middle', fontSize: 'inherit' }} />
+                            Using pattern "<strong>{selectedPatternInfo.name || `Pattern ${selectedPatternInfo.id}`}</strong>" 
+                            with <strong>{selectedPatternInfo.fileCount || selectedFileIds.length}</strong> files. 
+                            Configure the file operation below to proceed.
+                        </Typography>
+                    </Alert>
+                )}
 
-            {/* Error Message */}
-            {error && (
-                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-                    {error}
-                </Alert>
-            )}
-
-            {/* Pattern Information */}
-            {selectedPatternInfo && (
-                <Alert severity="info" sx={{ mb: 3 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Pattern sx={{ mr: 1 }} />
-                            <Typography variant="body2">
-                                Using pattern "<strong>{selectedPatternInfo.name || `Pattern ${selectedPatternInfo.id}`}</strong>" 
-                                with <strong>{selectedPatternInfo.fileCount || selectedFileIds.length}</strong> files. 
-                                Configure the file operation below to proceed.
-                            </Typography>
-                        </Box>
-                        <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={handleBackToPatterns}
-                            sx={{ ml: 2 }}
-                        >
-                            Back to Patterns
-                        </Button>
-                    </Box>
-                </Alert>
-            )}
-
-            {/* Pattern-Only File Operations */}
-            <Box sx={{ mt: 3 }}>
-                <Grid container spacing={3}>
+                {/* File Operations */}
+                <ResponsiveGrid breakpoints={{ xs: 1 }} spacing={3}>
                     {/* Smart File Manager - Full Width */}
-                    <Grid item xs={12}>
-                        <SmartFileManager
-                            selectedFileIds={selectedFileIds}
-                            onOperationComplete={handleOperationComplete}
-                        />
-                    </Grid>
+                    <SmartFileManager
+                        selectedFileIds={selectedFileIds}
+                        onOperationComplete={handleOperationComplete}
+                    />
                     
                     {/* Pattern Information Card */}
-                    <Grid item xs={12}>
-                        {selectedPatternInfo && (
-                            <Card variant="outlined">
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                        <Pattern sx={{ mr: 1, color: 'primary.main' }} />
-                                        <Typography variant="h6">
-                                            Pattern Information
-                                        </Typography>
-                                    </Box>
-                                    <Typography variant="body2" paragraph>
-                                        <strong>Pattern Name:</strong> {selectedPatternInfo.name}
-                                    </Typography>
-                                    <Typography variant="body2" paragraph>
-                                        <strong>Target Files:</strong> {selectedPatternInfo.fileCount || selectedFileIds.length} files
-                                    </Typography>
-                                    <Typography variant="body2" paragraph>
-                                        All files using this pattern are automatically included in the operation. 
-                                        Configure your target directory and filename template above to proceed.
-                                    </Typography>
-                                    <Divider sx={{ my: 2 }} />
-                                    <Box sx={{ display: 'flex', gap: 1 }}>
-                                        <Button 
-                                            size="small" 
-                                            variant="outlined"
-                                            onClick={handleBackToPatternDetails}
-                                        >
-                                            View Pattern Details
-                                        </Button>
-                                        <Button 
-                                            size="small" 
-                                            variant="outlined"
-                                            onClick={handleBackToPatterns}
-                                        >
-                                            Back to Pattern List
-                                        </Button>
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </Grid>
-                </Grid>
-            </Box>
-        </Box>
+                    {selectedPatternInfo && (
+                        <Card variant="outlined">
+                            <CardContent>
+                                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                    <Pattern sx={{ mr: 1, color: 'primary.main' }} />
+                                    Pattern Information
+                                </Typography>
+                                <Typography variant="body2" paragraph>
+                                    <strong>Pattern Name:</strong> {selectedPatternInfo.name}
+                                </Typography>
+                                <Typography variant="body2" paragraph>
+                                    <strong>Target Files:</strong> {selectedPatternInfo.fileCount || selectedFileIds.length} files
+                                </Typography>
+                                <Typography variant="body2" paragraph>
+                                    All files using this pattern are automatically included in the operation. 
+                                    Configure your target directory and filename template above to proceed.
+                                </Typography>
+                            </CardContent>
+                        </Card>
+                    )}
+                </ResponsiveGrid>
+            </PageContent>
+        </PageContainer>
     );
 };
 
