@@ -179,7 +179,7 @@ const JobsHeader = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, marginBottom: 0.5 }}>
           <Assignment 
             sx={{ 
-              fontSize: '2rem', 
+              fontSize: { xs: '1.5rem', md: '2rem' }, 
               color: theme.palette.primary.main 
             }} 
           />
@@ -187,7 +187,9 @@ const JobsHeader = ({
             variant="h4"
             sx={{
               fontWeight: theme.typography.fontWeightSemiBold || 600,
-              color: theme.palette.text.primary
+              color: theme.palette.text.primary,
+              fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
+              lineHeight: { xs: 1.2, md: 1.167 }
             }}
           >
             {title}

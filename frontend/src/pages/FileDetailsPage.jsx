@@ -63,7 +63,7 @@ const FileDetailsPage = () => {
       setExtractedData(result);
     } catch (error) {
       // No extracted data available - that's okay
-      console.log('No extracted data found for file:', id);
+      // No extracted data found for file: id
       setExtractedData(null);
     }
   };

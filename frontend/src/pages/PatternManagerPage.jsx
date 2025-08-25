@@ -14,7 +14,7 @@ const PatternManagerPage = () => {
   };
 
   return (
-    <PageContainer>
+    <PageContainer widthMode="wide">
       <PageHeader
         title="Pattern Manager"
         subtitle="Create, test, and manage regex patterns for extracting structured data from filenames"

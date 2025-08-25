@@ -190,10 +190,11 @@ const ScanProgress = ({ progress, onCancel, scanStats }) => {
 // ===========================================
 const ScanConfiguration = ({ config, onChange }) => {
     return (
-        <Accordion>
-            <AccordionSummary expandIcon={<ExpandMore />}>
-                <Typography>Scan Configuration</Typography>
-            </AccordionSummary>
+        <Card sx={{ mb: 3 }}>
+            <Accordion>
+                <AccordionSummary expandIcon={<ExpandMore />}>
+                    <Typography variant="h6">Scan Configuration</Typography>
+                </AccordionSummary>
             <AccordionDetails>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <FormControl fullWidth>
@@ -283,7 +284,8 @@ const ScanConfiguration = ({ config, onChange }) => {
                     </FormControl>
                 </Box>
             </AccordionDetails>
-        </Accordion>
+            </Accordion>
+        </Card>
     );
 };
 
@@ -620,15 +622,11 @@ const FileScanner = ({ onScanComplete }) => {
     };
 
     return (
-        <Box sx={{ maxWidth: 800, mx: 'auto', p: 2 }}>
-            <Typography variant="h4" gutterBottom>
-                File Scanner
-            </Typography>
-
-            <Card sx={{ mb: 2 }}>
-                <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                        Select Directory
+        <Box sx={{ width: '100%' }}>
+            <Card sx={{ mb: 3 }}>
+                <CardContent sx={{ p: 3 }}>
+                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                        Directory Selection
                     </Typography>
                     <DirectoryBrowser
                         onDirectorySelect={setSelectedDirectory}
@@ -642,28 +640,36 @@ const FileScanner = ({ onScanComplete }) => {
                 onChange={setScanConfig}
             />
 
-            <Card sx={{ mt: 2 }}>
-                <CardActions sx={{ p: 2 }}>
-                    <Button
-                        variant="contained"
-                        size="large"
-                        onClick={startScan}
-                        disabled={isScanning || !selectedDirectory}
-                        startIcon={<Search />}
-                    >
-                        {isScanning ? 'Scanning...' : 'Start Scan'}
-                    </Button>
-                    
-                    {scanResults && (
+            <Card sx={{ mb: 3 }}>
+                <CardContent sx={{ p: 3 }}>
+                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                        Scan Controls
+                    </Typography>
+                    <CardActions sx={{ p: 0, justifyContent: 'flex-start' }}>
                         <Button
-                            variant="outlined"
-                            onClick={() => setScanResults(null)}
-                            startIcon={<Refresh />}
+                            variant="contained"
+                            size="large"
+                            onClick={startScan}
+                            disabled={isScanning || !selectedDirectory}
+                            startIcon={<Search />}
+                            sx={{ minWidth: 140, py: 1.5 }}
                         >
-                            Clear Results
+                            {isScanning ? 'Scanning...' : 'Start Scan'}
                         </Button>
-                    )}
-                </CardActions>
+                        
+                        {scanResults && (
+                            <Button
+                                variant="outlined"
+                                size="large"
+                                onClick={() => setScanResults(null)}
+                                startIcon={<Refresh />}
+                                sx={{ minWidth: 140, py: 1.5, ml: 2 }}
+                            >
+                                Clear Results
+                            </Button>
+                        )}
+                    </CardActions>
+                </CardContent>
             </Card>
 
             <ScanProgress

@@ -18,7 +18,7 @@ const App = () => {
         enableTokenInjection: true
       }}
       onThemeChange={(themeMode, resolvedMode) => {
-        console.log('Theme changed:', { themeMode, resolvedMode });
+        // Theme changed: { themeMode, resolvedMode }
       }}
     >
       <Router>

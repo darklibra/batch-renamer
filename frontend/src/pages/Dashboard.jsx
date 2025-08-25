@@ -121,7 +121,7 @@ const Dashboard = () => {
   ];
 
   return (
-    <PageContainer>
+    <PageContainer widthMode="full">
       {/* Enhanced Dashboard Header */}
       <DashboardHeader
         title="Clear File Dashboard"
@@ -156,17 +156,60 @@ const Dashboard = () => {
           spacing={3}
         >
           {statCards.map((stat, index) => (
-            <Card key={index} sx={{ height: '100%' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Box sx={{ mr: 2 }}>
+            <Card 
+              key={index} 
+              sx={{ 
+                height: '100%',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: (theme) => theme.shadows[4]
+                }
+              }}
+            >
+              <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  textAlign: { xs: 'center', sm: 'left' },
+                  gap: { xs: 1, sm: 2 }
+                }}>
+                  <Box sx={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: { xs: 48, md: 56 },
+                    height: { xs: 48, md: 56 },
+                    borderRadius: 2,
+                    backgroundColor: `${stat.color}.light`,
+                    '& .MuiSvgIcon-root': {
+                      fontSize: { xs: '1.5rem', md: '2rem' }
+                    }
+                  }}>
                     {stat.icon}
                   </Box>
-                  <Box>
-                    <Typography variant="h4">
-                      {stat.value}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography 
+                      variant="h3"
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: { xs: '2rem', md: '2.5rem' },
+                        lineHeight: 1,
+                        color: 'text.primary',
+                        mb: 0.5
+                      }}
+                    >
+                      {stat.value.toLocaleString()}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography 
+                      variant="body1" 
+                      sx={{
+                        color: 'text.secondary',
+                        fontWeight: 500,
+                        fontSize: { xs: '0.875rem', md: '1rem' }
+                      }}
+                    >
                       {stat.title}
                     </Typography>
                   </Box>
@@ -177,39 +220,122 @@ const Dashboard = () => {
         </ResponsiveGrid>
 
         {/* Quick Actions Section */}
-        <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>
-          Quick Actions
-        </Typography>
-        <ResponsiveGrid
-          breakpoints={{ xs: 1, sm: 2, md: 4, lg: 4 }}
-          spacing={3}
-        >
-          {quickActions.map((action, index) => (
-            <Card key={index} sx={{ height: '100%' }}>
-              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Box sx={{ mr: 1 }}>
-                    {action.icon}
+        <Box sx={{ mt: { xs: 4, md: 6 } }}>
+          <Typography 
+            variant="h4" 
+            sx={{ 
+              mb: 3,
+              fontWeight: 600,
+              fontSize: { xs: '1.5rem', md: '2rem' },
+              color: 'text.primary'
+            }}
+          >
+            Quick Actions
+          </Typography>
+          <ResponsiveGrid
+            breakpoints={{ xs: 1, sm: 2, md: 2, lg: 4 }}
+            spacing={3}
+          >
+            {quickActions.map((action, index) => (
+              <Card 
+                key={index} 
+                sx={{ 
+                  height: '100%',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease-in-out',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: (theme) => theme.shadows[6],
+                    borderColor: `${action.color}.main`,
+                    '& .action-icon': {
+                      transform: 'scale(1.1)',
+                      color: `${action.color}.main`
+                    }
+                  }
+                }}
+                onClick={action.action}
+              >
+                <CardContent sx={{ 
+                  height: '100%', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  p: { xs: 2, md: 3 },
+                  textAlign: 'center'
+                }}>
+                  <Box sx={{ 
+                    display: 'flex',
+                    justifyContent: 'center',
+                    mb: 2
+                  }}>
+                    <Box sx={{ 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: { xs: 56, md: 64 },
+                      height: { xs: 56, md: 64 },
+                      borderRadius: '50%',
+                      backgroundColor: `${action.color}.light`,
+                      transition: 'all 0.2s ease-in-out',
+                      '& .MuiSvgIcon-root': {
+                        fontSize: { xs: '2rem', md: '2.5rem' }
+                      }
+                    }}
+                    className="action-icon"
+                    >
+                      {action.icon}
+                    </Box>
                   </Box>
-                  <Typography variant="h6">
+                  
+                  <Typography 
+                    variant="h6"
+                    sx={{
+                      mb: 1,
+                      fontWeight: 600,
+                      fontSize: { xs: '1.1rem', md: '1.25rem' },
+                      color: 'text.primary'
+                    }}
+                  >
                     {action.title}
                   </Typography>
-                </Box>
-                <Typography variant="body2" color="textSecondary" paragraph sx={{ flex: 1 }}>
-                  {action.description}
-                </Typography>
-                <Button
-                  variant="contained"
-                  color={action.color}
-                  onClick={action.action}
-                  fullWidth
-                >
-                  {action.title}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </ResponsiveGrid>
+                  
+                  <Typography 
+                    variant="body2" 
+                    sx={{
+                      color: 'text.secondary',
+                      flex: 1,
+                      mb: 3,
+                      lineHeight: 1.5,
+                      fontSize: { xs: '0.875rem', md: '0.9rem' }
+                    }}
+                  >
+                    {action.description}
+                  </Typography>
+                  
+                  <Button
+                    variant="contained"
+                    color={action.color}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      action.action();
+                    }}
+                    fullWidth
+                    sx={{
+                      borderRadius: 2,
+                      fontWeight: 600,
+                      py: { xs: 1, md: 1.5 },
+                      fontSize: { xs: '0.875rem', md: '0.95rem' },
+                      textTransform: 'none'
+                    }}
+                  >
+                    {action.title}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </ResponsiveGrid>
+        </Box>
       </PageContent>
     </PageContainer>
   );

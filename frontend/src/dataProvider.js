@@ -805,6 +805,31 @@ const customDataProvider = {
         });
     },
 
+    // Pattern Preview
+    previewPatternMatch: (patternData) => {
+        return fetch(`${apiUrl}/patterns/preview-match`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                regex_pattern: patternData.regex_pattern,
+                max_sample_files: patternData.max_sample_files || 1,
+                include_metadata: patternData.include_metadata !== false
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.detail || 'Pattern preview failed');
+                });
+            }
+            return response.json();
+        })
+        .catch(error => {
+            console.error('Pattern preview error:', error);
+            throw error;
+        });
+    },
+
     // Metadata Extraction
     extractFileMetadata: (fileId, forceReapply = false) => {
         const query = forceReapply ? '?force_reapply=true' : '';

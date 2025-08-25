@@ -9,6 +9,7 @@ import { useTheme } from '@mui/material/styles';
 const PageContainer = ({
   children,
   maxWidth = 'xl',
+  widthMode = 'constrained', // NEW: Control width behavior
   disableGutters = false,
   sx = {},
   spacing = 'page',
@@ -38,6 +39,17 @@ const PageContainer = ({
     }
   };
 
+  // Width mode 기반으로 효과적인 maxWidth 계산
+  const getEffectiveMaxWidth = () => {
+    switch (widthMode) {
+      case 'full': return false;      // 100% width, no constraints
+      case 'wide': return 'xl';       // 1536px max width
+      case 'constrained': return 'lg'; // 1200px max width
+      case 'narrow': return 'md';     // 960px max width
+      default: return maxWidth;        // Use provided maxWidth
+    }
+  };
+
   return (
     <Box
       component="main"
@@ -51,7 +63,7 @@ const PageContainer = ({
       {...props}
     >
       <Container
-        maxWidth={maxWidth}
+        maxWidth={getEffectiveMaxWidth()}
         disableGutters={disableGutters}
         sx={{
           height: '100%',

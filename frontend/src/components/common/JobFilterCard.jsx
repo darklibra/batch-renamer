@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Card,
     CardHeader,
@@ -9,12 +9,19 @@ import {
     MenuItem,
     Button,
     Chip,
-    Box
+    Box,
+    Collapse,
+    IconButton,
+    Tooltip,
+    Divider
 } from '@mui/material';
 import {
     FilterList,
     Clear,
-    Check
+    Check,
+    ExpandMore,
+    ExpandLess,
+    Tune
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 
@@ -30,10 +37,13 @@ const JobFilterCard = ({
     onClearFilters,
     onApplyFilters,
     hasChanges = false,
+    startExpanded = false,
+    compact = false,
     sx = {},
     ...props
 }) => {
     const theme = useTheme();
+    const [expanded, setExpanded] = useState(startExpanded);
 
     // 활성 필터 개수 계산
     const activeFilterCount = [filterStatus, filterType].filter(Boolean).length;
@@ -68,127 +78,213 @@ const JobFilterCard = ({
         >
             <CardHeader
                 avatar={<FilterList color="primary" />}
-                title="Filter Jobs"
-                subheader={activeFilterCount > 0 ? 
+                title={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        Filter Jobs
+                        {compact && activeFilterCount > 0 && (
+                            <Chip 
+                                size="small" 
+                                label={activeFilterCount} 
+                                color="primary" 
+                            />
+                        )}
+                    </Box>
+                }
+                subheader={!compact ? (
+                    activeFilterCount > 0 ? 
                     `${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} active` : 
                     'No filters applied'
-                }
+                ) : undefined}
                 action={
-                    <Chip
-                        label={activeFilterCount > 0 ? `${activeFilterCount} active` : 'No filters'}
-                        size="small"
-                        color={activeFilterCount > 0 ? "primary" : "default"}
-                        variant={activeFilterCount > 0 ? "filled" : "outlined"}
-                        icon={activeFilterCount > 0 ? <Check /> : undefined}
-                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {!compact && (
+                            <Chip
+                                label={activeFilterCount > 0 ? `${activeFilterCount} active` : 'No filters'}
+                                size="small"
+                                color={activeFilterCount > 0 ? "primary" : "default"}
+                                variant={activeFilterCount > 0 ? "filled" : "outlined"}
+                                icon={activeFilterCount > 0 ? <Check /> : undefined}
+                            />
+                        )}
+                        <Tooltip title={expanded ? "Collapse filters" : "Expand filters"}>
+                            <IconButton 
+                                onClick={() => setExpanded(!expanded)}
+                                size="small"
+                                aria-label={expanded ? "Collapse filters" : "Expand filters"}
+                                sx={{
+                                    transition: 'transform 0.2s',
+                                    transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                                }}
+                            >
+                                <ExpandMore />
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
                 }
                 sx={{
-                    pb: 1,
+                    pb: expanded ? 1 : 0,
+                    cursor: compact ? 'pointer' : 'default',
                     '& .MuiCardHeader-title': {
-                        fontSize: '1.1rem',
+                        fontSize: { xs: '1rem', md: '1.1rem' },
                         fontWeight: 600
                     },
                     '& .MuiCardHeader-subheader': {
-                        fontSize: '0.875rem'
+                        fontSize: { xs: '0.8rem', md: '0.875rem' }
                     }
                 }}
+                onClick={compact ? () => setExpanded(!expanded) : undefined}
             />
             
-            <CardContent sx={{ pt: 0 }}>
-                <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                        <TextField
-                            select
-                            fullWidth
-                            label="Status"
-                            value={filterStatus}
-                            onChange={onStatusChange}
-                            size="small"
-                            variant="outlined"
-                            helperText="Filter jobs by their current status"
-                        >
-                            {statusOptions.map((option) => (
-                                <MenuItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </MenuItem>
-                            ))}
-                        </TextField>
+            <Collapse in={expanded}>
+                <CardContent sx={{ pt: 0 }}>
+                    <Grid container spacing={{ xs: 1, md: 2 }}>
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                select
+                                fullWidth
+                                label="Status"
+                                value={filterStatus}
+                                onChange={onStatusChange}
+                                size="small"
+                                variant="outlined"
+                                helperText={!compact ? "Filter jobs by their current status" : undefined}
+                                sx={{
+                                    '& .MuiInputBase-root': {
+                                        fontSize: { xs: '0.875rem', md: '1rem' }
+                                    },
+                                    '& .MuiFormLabel-root': {
+                                        fontSize: { xs: '0.875rem', md: '1rem' }
+                                    }
+                                }}
+                            >
+                                {statusOptions.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+                        
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                select
+                                fullWidth
+                                label="Job Type"
+                                value={filterType}
+                                onChange={onTypeChange}
+                                size="small"
+                                variant="outlined"
+                                helperText={!compact ? "Filter jobs by their operation type" : undefined}
+                                sx={{
+                                    '& .MuiInputBase-root': {
+                                        fontSize: { xs: '0.875rem', md: '1rem' }
+                                    },
+                                    '& .MuiFormLabel-root': {
+                                        fontSize: { xs: '0.875rem', md: '1rem' }
+                                    }
+                                }}
+                            >
+                                {typeOptions.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
                     </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                        <TextField
-                            select
-                            fullWidth
-                            label="Job Type"
-                            value={filterType}
-                            onChange={onTypeChange}
-                            size="small"
-                            variant="outlined"
-                            helperText="Filter jobs by their operation type"
-                        >
-                            {typeOptions.map((option) => (
-                                <MenuItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-                    </Grid>
-                </Grid>
 
-                {/* 활성 필터 표시 */}
-                {activeFilterCount > 0 && (
-                    <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                            {filterStatus && (
-                                <Chip
-                                    label={`Status: ${statusOptions.find(opt => opt.value === filterStatus)?.label}`}
-                                    size="small"
-                                    onDelete={() => onStatusChange({ target: { value: '' } })}
-                                    color="primary"
-                                    variant="outlined"
-                                />
-                            )}
-                            {filterType && (
-                                <Chip
-                                    label={`Type: ${typeOptions.find(opt => opt.value === filterType)?.label}`}
-                                    size="small"
-                                    onDelete={() => onTypeChange({ target: { value: '' } })}
-                                    color="primary"
-                                    variant="outlined"
-                                />
-                            )}
+                    {/* 활성 필터 표시 */}
+                    {activeFilterCount > 0 && !compact && (
+                        <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {filterStatus && (
+                                    <Chip
+                                        label={`Status: ${statusOptions.find(opt => opt.value === filterStatus)?.label}`}
+                                        size="small"
+                                        onDelete={() => onStatusChange({ target: { value: '' } })}
+                                        color="primary"
+                                        variant="outlined"
+                                    />
+                                )}
+                                {filterType && (
+                                    <Chip
+                                        label={`Type: ${typeOptions.find(opt => opt.value === filterType)?.label}`}
+                                        size="small"
+                                        onDelete={() => onTypeChange({ target: { value: '' } })}
+                                        color="primary"
+                                        variant="outlined"
+                                    />
+                                )}
+                            </Box>
                         </Box>
+                    )}
+                </CardContent>
+            </Collapse>
+
+            {/* 컴팩트 모드에서의 활성 필터 미리보기 */}
+            {compact && activeFilterCount > 0 && !expanded && (
+                <Box sx={{ px: 2, pb: 1 }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {filterStatus && (
+                            <Chip
+                                label={statusOptions.find(opt => opt.value === filterStatus)?.label}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                            />
+                        )}
+                        {filterType && (
+                            <Chip
+                                label={typeOptions.find(opt => opt.value === filterType)?.label}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                            />
+                        )}
                     </Box>
-                )}
-            </CardContent>
-            
-            <CardActions sx={{ 
-                justifyContent: 'space-between',
-                px: 2,
-                pb: 2
-            }}>
-                <Button
-                    onClick={onClearFilters}
-                    disabled={activeFilterCount === 0}
-                    startIcon={<Clear />}
-                    color="secondary"
-                    size="small"
-                >
-                    Clear Filters
-                </Button>
-                
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                        variant="contained"
-                        onClick={onApplyFilters}
-                        disabled={!hasChanges}
-                        startIcon={<Check />}
-                        size="small"
-                    >
-                        Apply Filters
-                    </Button>
                 </Box>
-            </CardActions>
+            )}
+            
+            <Collapse in={expanded}>
+                <CardActions sx={{ 
+                    justifyContent: 'space-between',
+                    px: 2,
+                    pb: 2,
+                    pt: 1
+                }}>
+                    <Button
+                        onClick={onClearFilters}
+                        disabled={activeFilterCount === 0}
+                        startIcon={<Clear />}
+                        color="secondary"
+                        size="small"
+                        sx={{
+                            fontSize: { xs: '0.75rem', md: '0.875rem' },
+                            minWidth: { xs: 'auto', md: '64px' }
+                        }}
+                    >
+                        <span style={{ display: { xs: 'none', sm: 'inline' } }}>Clear Filters</span>
+                        <span style={{ display: { xs: 'inline', sm: 'none' } }}>Clear</span>
+                    </Button>
+                    
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                            variant="contained"
+                            onClick={onApplyFilters}
+                            disabled={!hasChanges}
+                            startIcon={<Check />}
+                            size="small"
+                            sx={{
+                                fontSize: { xs: '0.75rem', md: '0.875rem' },
+                                minWidth: { xs: 'auto', md: '64px' }
+                            }}
+                        >
+                            <span style={{ display: { xs: 'none', sm: 'inline' } }}>Apply Filters</span>
+                            <span style={{ display: { xs: 'inline', sm: 'none' } }}>Apply</span>
+                        </Button>
+                    </Box>
+                </CardActions>
+            </Collapse>
         </Card>
     );
 };

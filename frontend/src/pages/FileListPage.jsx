@@ -107,7 +107,7 @@ const FileListPage = () => {
   }
 
   return (
-    <PageContainer>
+    <PageContainer widthMode="full">
       <PageHeader
         title="Files"
         count={total}

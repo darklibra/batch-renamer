@@ -116,7 +116,7 @@ const DashboardHeader = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, marginBottom: 0.5 }}>
           <DashboardIcon 
             sx={{ 
-              fontSize: '2rem', 
+              fontSize: { xs: '1.5rem', md: '2rem' }, 
               color: theme.palette.primary.main 
             }} 
           />
@@ -124,7 +124,9 @@ const DashboardHeader = ({
             variant="h4"
             sx={{
               fontWeight: theme.typography.fontWeightSemiBold,
-              color: theme.palette.text.primary
+              color: theme.palette.text.primary,
+              fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
+              lineHeight: { xs: 1.2, md: 1.167 }
             }}
           >
             {title}
@@ -147,28 +149,46 @@ const DashboardHeader = ({
         )}
 
         {/* 상태 정보 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: { xs: 'flex-start', sm: 'center' }, 
+          gap: { xs: 1, md: 2 }, 
+          flexWrap: 'wrap',
+          flexDirection: { xs: 'column', sm: 'row' }
+        }}>
           {/* 시스템 상태 */}
           {showSystemStatus && (
             <Chip
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <span>{statusConfig.icon}</span>
-                  {statusConfig.label}
+                  <span style={{ display: { xs: 'none', sm: 'inline' } }}>{statusConfig.label}</span>
+                  <span style={{ display: { xs: 'inline', sm: 'none' } }}>
+                    {statusConfig.label.split(' ')[1] || statusConfig.label}
+                  </span>
                 </Box>
               }
               size="small"
               sx={{
                 backgroundColor: statusConfig.backgroundColor,
                 color: statusConfig.color,
-                fontSize: theme.typography.body2.fontSize
+                fontSize: { xs: '0.7rem', md: theme.typography.body2.fontSize },
+                height: { xs: 24, md: 32 }
               }}
             />
           )}
 
           {/* 마지막 업데이트 시간 */}
           {showLastUpdated && lastUpdated && (
-            <Typography variant="caption" color="textSecondary">
+            <Typography 
+              variant="caption" 
+              color="textSecondary"
+              sx={{
+                fontSize: { xs: '0.65rem', md: '0.75rem' },
+                display: { xs: 'block', sm: 'inline' },
+                width: { xs: '100%', sm: 'auto' }
+              }}
+            >
               Last updated: {formatLastUpdated(lastUpdated)}
             </Typography>
           )}
@@ -180,10 +200,11 @@ const DashboardHeader = ({
         sx={{
           display: 'flex',
           alignItems: 'center',
-          gap: 1,
-          flexDirection: { xs: 'row', md: 'row' },
+          gap: { xs: 0.5, md: 1 },
+          flexDirection: 'row',
           width: { xs: '100%', md: 'auto' },
-          justifyContent: { xs: 'space-between', md: 'flex-end' }
+          justifyContent: { xs: 'space-between', md: 'flex-end' },
+          flexWrap: { xs: 'wrap', md: 'nowrap' }
         }}
       >
         {/* 빠른 액션 버튼들 */}
@@ -196,27 +217,46 @@ const DashboardHeader = ({
             startIcon={action.icon}
             onClick={action.onClick}
             disabled={action.disabled}
+            aria-label={action.label}
             sx={{
-              minWidth: 'auto',
+              minWidth: { xs: 'auto', md: '64px' },
+              fontSize: { xs: '0.75rem', md: '0.875rem' },
+              padding: { xs: '4px 8px', md: '6px 16px' },
+              '& .MuiButton-startIcon': {
+                marginRight: { xs: 0, md: 1 }
+              },
+              '& .MuiButton-startIcon > *:first-of-type': {
+                fontSize: { xs: '1rem', md: '1.25rem' }
+              },
               ...action.sx
             }}
           >
-            {action.label}
+            <span style={{ display: { xs: 'none', md: 'inline' } }}>{action.label}</span>
           </Button>
         ))}
 
         {/* 시스템 액션 버튼들 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: { xs: 0.25, md: 0.5 },
+          ml: { xs: 0, md: 1 }
+        }}>
           {/* 새로고침 */}
           {onRefresh && (
             <Tooltip title="Refresh Data">
               <IconButton
                 onClick={onRefresh}
-                size="medium"
+                size={window.innerWidth < 768 ? "small" : "medium"}
+                aria-label="Refresh Data"
                 sx={{
                   color: theme.palette.text.secondary,
+                  padding: { xs: '4px', md: '8px' },
                   '&:hover': {
                     backgroundColor: `${theme.palette.primary.main}08`
+                  },
+                  '& .MuiSvgIcon-root': {
+                    fontSize: { xs: '1.1rem', md: '1.5rem' }
                   }
                 }}
               >
@@ -230,11 +270,16 @@ const DashboardHeader = ({
             <Tooltip title="Notifications">
               <IconButton
                 onClick={onNotifications}
-                size="medium"
+                size={window.innerWidth < 768 ? "small" : "medium"}
+                aria-label="Notifications"
                 sx={{
                   color: theme.palette.text.secondary,
+                  padding: { xs: '4px', md: '8px' },
                   '&:hover': {
                     backgroundColor: `${theme.palette.primary.main}08`
+                  },
+                  '& .MuiSvgIcon-root': {
+                    fontSize: { xs: '1.1rem', md: '1.5rem' }
                   }
                 }}
               >
@@ -250,11 +295,16 @@ const DashboardHeader = ({
             <Tooltip title="Help">
               <IconButton
                 onClick={onHelp}
-                size="medium"
+                size={window.innerWidth < 768 ? "small" : "medium"}
+                aria-label="Help"
                 sx={{
                   color: theme.palette.text.secondary,
+                  padding: { xs: '4px', md: '8px' },
                   '&:hover': {
                     backgroundColor: `${theme.palette.primary.main}08`
+                  },
+                  '& .MuiSvgIcon-root': {
+                    fontSize: { xs: '1.1rem', md: '1.5rem' }
                   }
                 }}
               >
@@ -268,11 +318,16 @@ const DashboardHeader = ({
             <Tooltip title="Settings">
               <IconButton
                 onClick={onSettings}
-                size="medium"
+                size={window.innerWidth < 768 ? "small" : "medium"}
+                aria-label="Settings"
                 sx={{
                   color: theme.palette.text.secondary,
+                  padding: { xs: '4px', md: '8px' },
                   '&:hover': {
                     backgroundColor: `${theme.palette.primary.main}08`
+                  },
+                  '& .MuiSvgIcon-root': {
+                    fontSize: { xs: '1.1rem', md: '1.5rem' }
                   }
                 }}
               >

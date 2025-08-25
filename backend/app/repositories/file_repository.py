@@ -159,6 +159,12 @@ class FileRepository:
             'total_size_bytes': total_size,
             'extensions': [{'extension': ext, 'count': count} for ext, count in extensions]
         }
+    
+    def get_files_for_preview(self, limit: int = 10000) -> List[IndexedFile]:
+        """Get files for pattern preview with performance limits"""
+        return self.db.query(IndexedFile).order_by(
+            desc(IndexedFile.indexed_at)
+        ).limit(limit).all()
 
 class ExclusionPatternRepository:
     """Repository for exclusion pattern operations"""

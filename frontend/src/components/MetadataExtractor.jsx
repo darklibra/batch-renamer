@@ -76,7 +76,7 @@ const MetadataExtractor = ({ fileId, fileName, onExtractionComplete, onError }) 
             }
         } catch (error) {
             // No existing data or error - that's okay
-            console.log('No existing extracted data found');
+            // No existing extracted data found
         }
     };
 

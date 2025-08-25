@@ -16,6 +16,7 @@ from app.repositories.selection_history_repository import PatternSelectionHistor
 from app.services.pattern_extraction_service import PatternExtractionService
 from app.services.pattern_validation_service import PatternValidationService, PatternTester
 from app.services.pattern_evaluation_service import PatternEvaluationService
+from app.services.pattern_preview_service import PatternPreviewService
 
 router = APIRouter(prefix="/patterns", tags=["Pattern Management"])
 
@@ -96,6 +97,29 @@ class BatchExtractionRequest(BaseModel):
 
 class FailureResolutionRequest(BaseModel):
     pattern_id: int = Field(..., description="Pattern ID to resolve the failure")
+
+
+class PatternMatchPreviewRequest(BaseModel):
+    """Request for pattern matching preview"""
+    regex_pattern: str = Field(
+        ..., min_length=1, max_length=500, description="Regular expression pattern to preview"
+    )
+    max_sample_files: int = Field(
+        default=1, ge=1, le=5, description="Maximum number of sample files to return"
+    )
+    include_metadata: bool = Field(
+        default=True, description="Whether to extract metadata from sample files"
+    )
+
+
+class PatternMatchPreviewResponse(BaseModel):
+    """Response for pattern matching preview"""
+    match_count: int = Field(..., description="Number of files matching the pattern")
+    sample_files: List[Dict[str, Any]] = Field(..., description="Sample matching files")
+    security_validation: Dict[str, Any] = Field(..., description="Security validation results")
+    is_valid: bool = Field(..., description="Whether the pattern is valid and safe")
+    validation_errors: List[str] = Field(..., description="Validation error messages if any")
+    performance_metrics: Dict[str, Any] = Field(..., description="Performance metrics for the operation")
 
 
 class PatternValidationRequest(BaseModel):
@@ -269,6 +293,26 @@ def get_pattern_tester() -> PatternTester:
 def get_selection_history_repository(db: Session = Depends(get_db)) -> PatternSelectionHistoryRepository:
     """Get pattern selection history repository"""
     return PatternSelectionHistoryRepository(db)
+
+
+def get_pattern_preview_service(db: Session = Depends(get_db)) -> PatternPreviewService:
+    """Get pattern preview service with all dependencies"""
+    file_repo = FileRepository(db)
+    validation_service = PatternValidationService()
+    pattern_tester = PatternTester(validation_service)
+    
+    # Create pattern extraction service dependencies
+    pattern_repo = PatternRepository(db)
+    application_repo = PatternApplicationRepository(db)
+    failure_repo = PatternFailureRepository(db)
+    job_repo = PatternExtractionJobRepository(db)
+    selection_history_repo = PatternSelectionHistoryRepository(db)
+    
+    extraction_service = PatternExtractionService(
+        file_repo, pattern_repo, application_repo, failure_repo, job_repo, selection_history_repo
+    )
+    
+    return PatternPreviewService(file_repo, validation_service, pattern_tester, extraction_service)
 
 
 # Pattern CRUD endpoints
@@ -595,6 +639,32 @@ async def test_pattern(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Pattern test failed: {str(e)}")
+
+
+@router.post("/preview-match", response_model=PatternMatchPreviewResponse)
+async def preview_pattern_match(
+    preview_data: PatternMatchPreviewRequest,
+    preview_service: PatternPreviewService = Depends(get_pattern_preview_service),
+):
+    """Preview pattern matching with file count and sample files for real-time feedback"""
+    try:
+        result = await preview_service.preview_pattern_match(
+            regex_pattern=preview_data.regex_pattern,
+            max_sample_files=preview_data.max_sample_files,
+            include_metadata=preview_data.include_metadata
+        )
+        
+        return PatternMatchPreviewResponse(
+            match_count=result.match_count,
+            sample_files=result.sample_files,
+            security_validation=result.security_validation,
+            is_valid=result.is_valid,
+            validation_errors=result.validation_errors,
+            performance_metrics=result.performance_metrics
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pattern preview failed: {str(e)}")
 
 
 # Pattern extraction endpoints

@@ -6,11 +6,12 @@ import {
     List, ListItem, ListItemText,
     Chip, Switch, FormControlLabel, Alert,
     Accordion, AccordionSummary, AccordionDetails, Paper, Grid,
-    LinearProgress
+    LinearProgress, InputAdornment, CircularProgress
 } from '@mui/material';
 import {
     Add, Edit, Delete, ExpandMore, Close, Science, Security,
-    CheckCircle, Error as ErrorIcon, Warning, Info, Refresh
+    CheckCircle, Error as ErrorIcon, Warning, Info, Refresh, Preview,
+    CloudDone, PlayArrow
 } from '@mui/icons-material';
 import { PageHeader, StandardCardActions } from './common';
 // Removed useNotify to avoid Router context issues
@@ -203,6 +204,18 @@ const PatternFormDialog = ({ open, onClose, pattern, onSave }) => {
     const [securityValidation, setSecurityValidation] = useState(null);
     const [loading, setLoading] = useState(false);
     const [validatingPattern, setValidatingPattern] = useState(false);
+    
+    // Pattern Preview State
+    const [patternPreview, setPatternPreview] = useState({
+        loading: false,
+        matchCount: 0,
+        sampleFiles: [],
+        errors: [],
+        showPreview: false
+    });
+    const [isRegexLocked, setIsRegexLocked] = useState(false);
+    const [previewCache, setPreviewCache] = useState(new Map());
+    
     // Using imported notification system
 
     useEffect(() => {
@@ -229,7 +242,86 @@ const PatternFormDialog = ({ open, onClose, pattern, onSave }) => {
         }
         setValidation(null);
         setSecurityValidation(null);
+        setPatternPreview({
+            loading: false,
+            matchCount: 0,
+            sampleFiles: [],
+            errors: [],
+            showPreview: false
+        });
     }, [pattern, open]);
+
+
+    // Pattern Preview Functions
+    const fetchPatternPreview = async (pattern) => {
+        if (!pattern || pattern.trim() === '') {
+            setPatternPreview(prev => ({ 
+                ...prev, 
+                loading: false, 
+                matchCount: 0, 
+                sampleFiles: [], 
+                errors: [],
+                showPreview: false 
+            }));
+            return;
+        }
+
+        setIsRegexLocked(true);
+        setPatternPreview(prev => ({ ...prev, loading: true, errors: [] }));
+        
+        try {
+            // Check cache first
+            if (previewCache.has(pattern)) {
+                const cached = previewCache.get(pattern);
+                setPatternPreview({
+                    loading: false,
+                    matchCount: cached.match_count,
+                    sampleFiles: cached.sample_files,
+                    errors: [],
+                    showPreview: true
+                });
+                setIsRegexLocked(false);
+                return;
+            }
+
+            const result = await dataProvider.previewPatternMatch({ 
+                regex_pattern: pattern,
+                max_sample_files: 1,
+                include_metadata: true
+            });
+
+            // Cache the result
+            const newCache = new Map(previewCache);
+            newCache.set(pattern, result);
+            setPreviewCache(newCache);
+            
+            setPatternPreview({
+                loading: false,
+                matchCount: result.match_count,
+                sampleFiles: result.sample_files,
+                errors: result.validation_errors || [],
+                showPreview: true
+            });
+            
+        } catch (error) {
+            console.error('Pattern preview error:', error);
+            setPatternPreview(prev => ({ 
+                ...prev, 
+                loading: false, 
+                errors: [error.message || 'Preview failed'],
+                showPreview: true
+            }));
+        } finally {
+            setIsRegexLocked(false);
+        }
+    };
+
+    const handlePreviewClick = () => {
+        const regexValue = formData.regex_pattern.trim();
+        if (regexValue) {
+            fetchPatternPreview(regexValue);
+        }
+    };
 
     const validatePattern = () => {
         const errors = [];
@@ -414,12 +506,125 @@ const PatternFormDialog = ({ open, onClose, pattern, onSave }) => {
                         label="Regular Expression"
                         value={formData.regex_pattern}
                         onChange={(e) => handleFieldChange('regex_pattern', e.target.value)}
+                        disabled={isRegexLocked}
                         required
                         fullWidth
                         multiline
                         minRows={2}
-                        helperText="Enter a valid regular expression pattern"
+                        helperText="Enter a valid regular expression pattern and click the ▶ button to test it"
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        onClick={handlePreviewClick}
+                                        disabled={!formData.regex_pattern.trim() || patternPreview.loading || isRegexLocked}
+                                        size="medium"
+                                        color="primary"
+                                        title="Test pattern and show matches"
+                                        sx={{ 
+                                            p: 1.5,
+                                            '&:hover': {
+                                                bgcolor: 'primary.main',
+                                                color: 'primary.contrastText'
+                                            }
+                                        }}
+                                    >
+                                        {patternPreview.loading ? (
+                                            <CircularProgress size={24} color="inherit" />
+                                        ) : (
+                                            <PlayArrow fontSize="medium" />
+                                        )}
+                                    </IconButton>
+                                </InputAdornment>
+                            )
+                        }}
                     />
+
+                    {/* Pattern Preview Results */}
+                    {patternPreview.showPreview && (
+                        <Card variant="outlined" sx={{ mt: 1, mb: 1 }}>
+                            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                    <Preview sx={{ mr: 1, color: 'primary.main' }} />
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                        Pattern Preview
+                                    </Typography>
+                                    {patternPreview.loading && (
+                                        <LinearProgress sx={{ ml: 2, width: 100 }} />
+                                    )}
+                                </Box>
+                                
+                                {patternPreview.errors.length > 0 ? (
+                                    <Alert severity="error" sx={{ mt: 1 }}>
+                                        {patternPreview.errors.map((error, index) => (
+                                            <Typography key={index} variant="body2">
+                                                {error}
+                                            </Typography>
+                                        ))}
+                                    </Alert>
+                                ) : (
+                                    <>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                            <CloudDone sx={{ mr: 1, color: 'success.main' }} />
+                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                <strong>{patternPreview.matchCount}</strong> files match this pattern
+                                            </Typography>
+                                        </Box>
+                                        
+                                        {patternPreview.sampleFiles.length > 0 && (
+                                            <Box sx={{ 
+                                                bgcolor: 'grey.50', 
+                                                p: 1.5, 
+                                                borderRadius: 1, 
+                                                border: '1px solid',
+                                                borderColor: 'grey.200'
+                                            }}>
+                                                <Typography variant="caption" color="textSecondary" sx={{ mb: 0.5, display: 'block' }}>
+                                                    Sample file:
+                                                </Typography>
+                                                <Typography 
+                                                    variant="body2" 
+                                                    sx={{ 
+                                                        fontFamily: 'monospace',
+                                                        color: 'primary.main',
+                                                        fontWeight: 500,
+                                                        mb: 0.5
+                                                    }}
+                                                >
+                                                    {patternPreview.sampleFiles[0].filename}
+                                                </Typography>
+                                                {patternPreview.sampleFiles[0].extracted_data && 
+                                                 Object.keys(patternPreview.sampleFiles[0].extracted_data).length > 0 && (
+                                                    <Chip 
+                                                        label={`${Object.keys(patternPreview.sampleFiles[0].extracted_data).length} fields extracted`}
+                                                        size="small"
+                                                        color="success"
+                                                        variant="outlined"
+                                                    />
+                                                )}
+                                                {patternPreview.sampleFiles[0].match_groups && 
+                                                 patternPreview.sampleFiles[0].match_groups.length > 0 && (
+                                                    <Box sx={{ mt: 1 }}>
+                                                        <Typography variant="caption" color="textSecondary">
+                                                            Match groups: {patternPreview.sampleFiles[0].match_groups.join(', ')}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
+                                            </Box>
+                                        )}
+                                        
+                                        {patternPreview.matchCount === 0 && (
+                                            <Alert severity="info" sx={{ mt: 1 }}>
+                                                <Typography variant="body2">
+                                                    No files match this pattern. Try adjusting your regular expression.
+                                                </Typography>
+                                            </Alert>
+                                        )}
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
 
                     <TextField
                         label="Field Mapping (JSON)"
@@ -658,27 +863,10 @@ const PatternManager = () => {
     };
 
     return (
-        <Box sx={{ maxWidth: 1200, mx: 'auto', p: 2 }}>
-            <PageHeader
-                title="Pattern Management System"
-                subtitle="Create, test, and manage regex patterns for extracting structured data from filenames"
-                primaryAction={{
-                    label: "Create Pattern",
-                    onClick: handleCreatePattern,
-                    icon: <Add />
-                }}
-                secondaryActions={[
-                    {
-                        type: 'refresh',
-                        onClick: fetchPatterns,
-                        label: 'Refresh',
-                        iconOnly: false
-                    }
-                ]}
-            />
+        <Box sx={{ width: '100%' }}>
 
             {systemStats && (
-                <Paper sx={{ p: 2, mb: 3 }}>
+                <Paper sx={{ p: 3, mb: 3 }}>
                     <Typography variant="h6" gutterBottom>
                         System Overview
                     </Typography>
@@ -796,6 +984,16 @@ const PatternManager = () => {
                 pattern={formDialog.pattern}
                 onSave={handleFormSave}
             />
+            
+            {/* Hidden button for external access - used by PatternManagerPage */}
+            <button
+                data-testid="create-pattern-button"
+                onClick={handleCreatePattern}
+                style={{ display: 'none' }}
+                aria-hidden="true"
+            >
+                Create Pattern
+            </button>
         </Box>
     );
 };

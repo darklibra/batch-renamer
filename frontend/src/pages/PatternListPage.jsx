@@ -90,7 +90,7 @@ const PatternListPage = () => {
   }
 
   return (
-    <PageContainer>
+    <PageContainer widthMode="full">
       <PageHeader
         title="Patterns"
         count={total}

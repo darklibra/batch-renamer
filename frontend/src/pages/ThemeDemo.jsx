@@ -24,10 +24,6 @@ import {
 } from '@mui/material';
 import {
   Palette,
-  Brightness4,
-  Brightness7,
-  Settings,
-  Schedule,
   Code,
   Speed,
   Security

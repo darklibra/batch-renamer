@@ -80,7 +80,7 @@ const SmartFileManagerPage = () => {
                     fileCount: data.total
                 }));
                 
-                console.log(`Loaded ${fileIds.length} files for pattern "${patternName || patternId}"`);
+                // Loaded ${fileIds.length} files for pattern "${patternName || patternId}"
                 setError(null);
             } else {
                 setError(`No files found using pattern "${patternName || patternId}"`);
@@ -116,7 +116,7 @@ const SmartFileManagerPage = () => {
     };
 
     const handleOperationComplete = (result) => {
-        console.log('Smart operation completed:', result);
+        // Smart operation completed: result
         setOperationComplete(true);
         
         // In pattern mode, operation completion means the task is done

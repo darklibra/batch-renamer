@@ -286,7 +286,7 @@ const SmartOperationsListPage = () => {
   );
 
   return (
-    <PageContainer>
+    <PageContainer widthMode="full">
       <PageHeader
         title="Smart Operations"
         count={total}

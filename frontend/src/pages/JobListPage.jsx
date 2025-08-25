@@ -530,7 +530,7 @@ const JobListPage = () => {
     };
 
     return (
-        <PageContainer>
+        <PageContainer widthMode="full">
             <JobsHeader
                 title="Jobs Management"
                 subtitle="Monitor and manage background jobs and processing tasks"

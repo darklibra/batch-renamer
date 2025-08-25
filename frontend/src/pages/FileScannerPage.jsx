@@ -5,7 +5,7 @@ import FileScanner from '../components/FileScanner.jsx';
 
 const FileScannerPage = () => {
   return (
-    <PageContainer>
+    <PageContainer widthMode="wide">
       <PageHeader
         title="File Scanner"
         subtitle="Scan directories to discover and index files for pattern matching and metadata extraction."
