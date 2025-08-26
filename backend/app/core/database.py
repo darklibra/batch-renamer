@@ -2,19 +2,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-import os
+from .config import get_settings
 
-# Database URL from environment or default to SQLite
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./db/clear_file.db")
+# Get configuration
+settings = get_settings()
 
-# Create database directory if it doesn't exist
-os.makedirs("./db", exist_ok=True)
-
-# SQLAlchemy engine
+# SQLAlchemy engine with configuration-based options
 engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
-    poolclass=StaticPool if DATABASE_URL.startswith("sqlite") else None,
+    settings.database_url,
+    **settings.database_options
 )
 
 # Session factory

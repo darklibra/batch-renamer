@@ -2,14 +2,14 @@
 API routes for Smart File Operations
 """
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ...core.database import get_db
 from ...services.smart_operations_service import SmartOperationsService
 
-router = APIRouter(prefix="/api/v1/smart-operations", tags=["smart-operations"])
+router = APIRouter(prefix="/smart-operations", tags=["smart-operations"])
 
 
 # Pydantic models for request/response
@@ -97,8 +97,9 @@ async def create_operation(
         raise HTTPException(status_code=500, detail=f"Failed to create operation: {str(e)}")
 
 
-@router.get("/", response_model=OperationListResponse)
-async def get_operations_list(
+async def _get_operations_list_handler(
+    request: Request,
+    response: Response,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
     status_filter: Optional[str] = Query(None, pattern="^(pending|running|completed|failed|cancelled)$"),
@@ -108,6 +109,11 @@ async def get_operations_list(
     db: Session = Depends(get_db)
 ):
     """Get list of Smart File Operations with filtering and pagination"""
+    if request.method == "OPTIONS":
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        return {}
+        
     service = SmartOperationsService(db)
     
     try:
@@ -121,6 +127,35 @@ async def get_operations_list(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get operations: {str(e)}")
+
+# Register both with and without trailing slash  
+@router.api_route("/", methods=["GET", "OPTIONS"], response_model=None)
+async def get_operations_list(
+    request: Request,
+    response: Response,
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+    status_filter: Optional[str] = Query(None, pattern="^(pending|running|completed|failed|cancelled)$"),
+    operation_type_filter: Optional[str] = Query(None, pattern="^(copy|move)$"),
+    sort_by: str = Query("created_at", pattern="^(created_at|name|status|operation_type)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+    db: Session = Depends(get_db)
+):
+    return await _get_operations_list_handler(request, response, skip, limit, status_filter, operation_type_filter, sort_by, sort_order, db)
+
+@router.api_route("", methods=["GET", "OPTIONS"], response_model=None)  
+async def get_operations_list_no_slash(
+    request: Request,
+    response: Response,
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+    status_filter: Optional[str] = Query(None, pattern="^(pending|running|completed|failed|cancelled)$"),
+    operation_type_filter: Optional[str] = Query(None, pattern="^(copy|move)$"),
+    sort_by: str = Query("created_at", pattern="^(created_at|name|status|operation_type)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+    db: Session = Depends(get_db)
+):
+    return await _get_operations_list_handler(request, response, skip, limit, status_filter, operation_type_filter, sort_by, sort_order, db)
 
 
 @router.get("/{operation_id}", response_model=Dict[str, Any])

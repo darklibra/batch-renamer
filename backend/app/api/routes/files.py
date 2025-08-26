@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks, Request, Response
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 import os
@@ -108,21 +108,18 @@ def _validate_path_security(directory_path: str) -> bool:
     except Exception:
         return False
 
-# File listing and management endpoints
-@router.get("/files", response_model=FileListResponse)
-def list_files(
-    page: int = Query(1, ge=1, description="Page number"),
-    per_page: int = Query(10, ge=1, le=100, description="Items per page"),
-    sort_field: str = Query("indexed_at", description="Field to sort by"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order"),
-    extension: Optional[str] = Query(None, description="Filter by file extension"),
-    path: Optional[str] = Query(None, description="Filter by path containing"),
-    filename: Optional[str] = Query(None, description="Filter by filename containing"),
-    file_repo: FileRepository = Depends(get_file_repository)
+# Helper function for list_files logic
+async def _list_files_handler(
+    page: int,
+    per_page: int,
+    _sort: str,
+    _order: str,
+    extension: Optional[str],
+    path: Optional[str],
+    filename: Optional[str],
+    file_repo: FileRepository
 ):
-    """
-    Get paginated list of indexed files with filtering and sorting
-    """
+    """Shared logic for list_files endpoints"""
     try:
         filters = {}
         if extension:
@@ -135,8 +132,8 @@ def list_files(
         result = file_repo.get_files_paginated(
             page=page,
             per_page=per_page,
-            sort_field=sort_field,
-            sort_order=sort_order,
+            sort_field=_sort,
+            sort_order=_order.lower(),
             filters=filters
         )
         
@@ -147,9 +144,36 @@ def list_files(
             per_page=result['per_page'],
             total_pages=result['total_pages']
         )
-        
+    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve files: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get files: {str(e)}")
+
+# File listing and management endpoints
+@router.api_route("/files", methods=["GET"], response_model=FileListResponse)
+async def list_files(
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(10, ge=1, le=100, description="Items per page"),
+    _sort: str = Query("created_at", description="Field to sort by", alias="_sort"),
+    _order: str = Query("DESC", regex="^(ASC|DESC|asc|desc)$", description="Sort order", alias="_order"),
+    extension: Optional[str] = Query(None, description="Filter by file extension"),
+    path: Optional[str] = Query(None, description="Filter by path containing"),
+    filename: Optional[str] = Query(None, description="Filter by filename containing"),
+    file_repo: FileRepository = Depends(get_file_repository)
+):
+    return await _list_files_handler(page, per_page, _sort, _order, extension, path, filename, file_repo)
+
+@router.api_route("/files/", methods=["GET"], response_model=FileListResponse)
+async def list_files_with_slash(
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(10, ge=1, le=100, description="Items per page"),
+    _sort: str = Query("created_at", description="Field to sort by", alias="_sort"),
+    _order: str = Query("DESC", regex="^(ASC|DESC|asc|desc)$", description="Sort order", alias="_order"),
+    extension: Optional[str] = Query(None, description="Filter by file extension"),
+    path: Optional[str] = Query(None, description="Filter by path containing"),
+    filename: Optional[str] = Query(None, description="Filter by filename containing"),
+    file_repo: FileRepository = Depends(get_file_repository)
+):
+    return await _list_files_handler(page, per_page, _sort, _order, extension, path, filename, file_repo)
 
 # Specific routes must come before parameterized routes
 @router.get("/files/stats", response_model=FileStatsResponse)

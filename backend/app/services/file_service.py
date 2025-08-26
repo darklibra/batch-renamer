@@ -1,7 +1,6 @@
 import os
 from typing import List
 from pathlib import Path
-from app.models.file_info import FileInfo
 from app.models.file_models import IndexedFile
 from app.api.schemas import FileInfoResponse
 

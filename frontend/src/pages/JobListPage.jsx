@@ -12,7 +12,7 @@ import {
     ExpandMore, Close, Analytics, Assignment, FilterList, NavigateBefore, NavigateNext
 } from '@mui/icons-material';
 import { PageHeader } from '../components/common';
-import { PageContainer, PageContent, ResponsiveGrid } from '../components/layout/index.js';
+import { PageContainer, PageContent, ResponsiveGrid, UniformGrid } from '../components/layout/index.js';
 import { JobsHeader } from '../components/headers/index.js';
 import JobFilterCard from '../components/common/JobFilterCard.jsx';
 import JobActionBar from '../components/common/JobActionBar.jsx';
@@ -322,9 +322,10 @@ const JobStatistics = () => {
             <Typography variant="h5" sx={{ mb: 2 }}>
                 Job Statistics
             </Typography>
-            <ResponsiveGrid
-                breakpoints={{ xs: 1, sm: 2, md: 3, lg: 6 }}
+            <UniformGrid
+                columns={{ xs: 1, sm: 2, md: 3, lg: 6 }}
                 spacing={3}
+                minHeight={100}
             >
                 {[
                     {
@@ -382,7 +383,7 @@ const JobStatistics = () => {
                         </CardContent>
                     </Card>
                 ))}
-            </ResponsiveGrid>
+            </UniformGrid>
         </Box>
     );
 };
@@ -696,10 +697,13 @@ const JobListPage = () => {
                     {/* Pagination - 표준화된 스타일 */}
                     {totalJobs > 20 && (
                         <CardContent sx={{ borderTop: 1, borderColor: 'divider' }}>
-                            <ResponsiveGrid
-                                breakpoints={{ xs: 1, sm: 3, md: 3 }}
-                                spacing={2}
-                                sx={{ alignItems: 'center' }}
+                            <Box
+                                sx={{
+                                    display: 'grid',
+                                    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' },
+                                    gap: 2,
+                                    alignItems: 'center'
+                                }}
                             >
                                 <Box sx={{ display: 'flex', justifyContent: { xs: 'center', sm: 'flex-start' } }}>
                                     <Button 
@@ -733,7 +737,7 @@ const JobListPage = () => {
                                         Next
                                     </Button>
                                 </Box>
-                            </ResponsiveGrid>
+                            </Box>
                         </CardContent>
                     )}
                 </Card>

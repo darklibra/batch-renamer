@@ -20,7 +20,7 @@ import {
 import dataProvider from '../dataProvider';
 
 // New standardized components
-import { PageContainer, PageContent, ResponsiveGrid } from '../components/layout/index.js';
+import { PageContainer, PageContent, ResponsiveGrid, UniformGrid } from '../components/layout/index.js';
 import { DashboardHeader } from '../components/headers/index.js';
 
 const Dashboard = () => {
@@ -150,10 +150,11 @@ const Dashboard = () => {
           </Alert>
         )}
 
-        {/* Statistics Cards */}
-        <ResponsiveGrid
-          breakpoints={{ xs: 1, sm: 2, md: 4, lg: 4 }}
+        {/* Statistics Cards with Perfect Width Consistency */}
+        <UniformGrid
+          columns={{ xs: 1, sm: 2, md: 4, lg: 4 }}
           spacing={3}
+          minHeight={140}
         >
           {statCards.map((stat, index) => (
             <Card 
@@ -217,7 +218,7 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           ))}
-        </ResponsiveGrid>
+        </UniformGrid>
 
         {/* Quick Actions Section */}
         <Box sx={{ mt: { xs: 4, md: 6 } }}>
@@ -232,9 +233,10 @@ const Dashboard = () => {
           >
             Quick Actions
           </Typography>
-          <ResponsiveGrid
-            breakpoints={{ xs: 1, sm: 2, md: 2, lg: 4 }}
+          <UniformGrid
+            columns={{ xs: 1, sm: 2, md: 2, lg: 4 }}
             spacing={3}
+            minHeight={200}
           >
             {quickActions.map((action, index) => (
               <Card 
@@ -334,7 +336,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             ))}
-          </ResponsiveGrid>
+          </UniformGrid>
         </Box>
       </PageContent>
     </PageContainer>

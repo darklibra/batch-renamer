@@ -14,7 +14,10 @@ export {
   ListGrid,
   ResponsiveGrid,
   FlexGrid,
-  SidebarGrid
+  SidebarGrid,
+  UniformGrid,
+  TwoColumnLayout,
+  BalancedLayout
 } from './ContentGrid.jsx';
 
 // Layout utilities

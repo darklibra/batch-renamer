@@ -623,54 +623,147 @@ const FileScanner = ({ onScanComplete }) => {
 
     return (
         <Box sx={{ width: '100%' }}>
-            <Card sx={{ mb: 3 }}>
-                <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-                        Directory Selection
-                    </Typography>
-                    <DirectoryBrowser
-                        onDirectorySelect={setSelectedDirectory}
-                        selectedPath={selectedDirectory}
-                    />
-                </CardContent>
-            </Card>
+            {/* Main Content Section - Using Consistent Layout Pattern */}
+            <Box sx={{ mb: 4 }}>
+                {/* Left Column: Primary Controls */}
+                <Box sx={{ 
+                    display: 'grid',
+                    gridTemplateColumns: { 
+                        xs: '1fr', 
+                        md: '2fr 1fr' 
+                    },
+                    gap: 3,
+                    mb: 3
+                }}>
+                    {/* Primary Controls Column */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <Card sx={{ height: 'fit-content' }}>
+                            <CardContent sx={{ p: 3 }}>
+                                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                                    Directory Selection
+                                </Typography>
+                                <DirectoryBrowser
+                                    onDirectorySelect={setSelectedDirectory}
+                                    selectedPath={selectedDirectory}
+                                />
+                            </CardContent>
+                        </Card>
 
-            <ScanConfiguration
-                config={scanConfig}
-                onChange={setScanConfig}
-            />
+                        <Card sx={{ height: 'fit-content' }}>
+                            <CardContent sx={{ p: 3 }}>
+                                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                                    Scan Controls
+                                </Typography>
+                                <CardActions sx={{ p: 0, justifyContent: 'flex-start' }}>
+                                    <Button
+                                        variant="contained"
+                                        size="large"
+                                        onClick={startScan}
+                                        disabled={isScanning || !selectedDirectory}
+                                        startIcon={<Search />}
+                                        sx={{ minWidth: 140, py: 1.5 }}
+                                    >
+                                        {isScanning ? 'Scanning...' : 'Start Scan'}
+                                    </Button>
+                                    
+                                    {scanResults && (
+                                        <Button
+                                            variant="outlined"
+                                            size="large"
+                                            onClick={() => setScanResults(null)}
+                                            startIcon={<Refresh />}
+                                            sx={{ minWidth: 140, py: 1.5, ml: 2 }}
+                                        >
+                                            Clear Results
+                                        </Button>
+                                    )}
+                                </CardActions>
+                            </CardContent>
+                        </Card>
+                    </Box>
 
-            <Card sx={{ mb: 3 }}>
-                <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-                        Scan Controls
-                    </Typography>
-                    <CardActions sx={{ p: 0, justifyContent: 'flex-start' }}>
-                        <Button
-                            variant="contained"
-                            size="large"
-                            onClick={startScan}
-                            disabled={isScanning || !selectedDirectory}
-                            startIcon={<Search />}
-                            sx={{ minWidth: 140, py: 1.5 }}
-                        >
-                            {isScanning ? 'Scanning...' : 'Start Scan'}
-                        </Button>
-                        
-                        {scanResults && (
-                            <Button
-                                variant="outlined"
-                                size="large"
-                                onClick={() => setScanResults(null)}
-                                startIcon={<Refresh />}
-                                sx={{ minWidth: 140, py: 1.5, ml: 2 }}
-                            >
-                                Clear Results
-                            </Button>
-                        )}
-                    </CardActions>
-                </CardContent>
-            </Card>
+                    {/* Right Column: Quick Actions/Status */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {/* Quick Status Card */}
+                        <Card sx={{ height: 'fit-content' }}>
+                            <CardContent sx={{ p: 3 }}>
+                                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                                    Scan Status
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Selected Directory:
+                                        </Typography>
+                                        <Chip 
+                                            label={selectedDirectory ? 'Ready' : 'Not Selected'} 
+                                            color={selectedDirectory ? 'success' : 'default'}
+                                            size="small"
+                                        />
+                                    </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Scan State:
+                                        </Typography>
+                                        <Chip 
+                                            label={isScanning ? 'Scanning' : 'Idle'} 
+                                            color={isScanning ? 'warning' : 'default'}
+                                            size="small"
+                                        />
+                                    </Box>
+                                    {scanResults && (
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Last Scan:
+                                            </Typography>
+                                            <Chip 
+                                                label={`${scanResults.files_indexed || 0} Files`} 
+                                                color="info"
+                                                size="small"
+                                            />
+                                        </Box>
+                                    )}
+                                </Box>
+                            </CardContent>
+                        </Card>
+
+                        {/* Quick Actions Card */}
+                        <Card sx={{ height: 'fit-content' }}>
+                            <CardContent sx={{ p: 3 }}>
+                                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                                    Quick Actions
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<Visibility />}
+                                        onClick={handleViewFiles}
+                                        fullWidth
+                                        size="small"
+                                    >
+                                        View All Files
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<Settings />}
+                                        onClick={() => navigate('/pattern-manager')}
+                                        fullWidth
+                                        size="small"
+                                    >
+                                        Pattern Manager
+                                    </Button>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Box>
+                </Box>
+
+                {/* Full-width Configuration Section */}
+                <ScanConfiguration
+                    config={scanConfig}
+                    onChange={setScanConfig}
+                />
+            </Box>
 
             <ScanProgress
                 progress={scanProgress}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Grid, Box } from '@mui/material';
+import { Grid, Box, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
 /**
@@ -126,8 +126,9 @@ export const ListGrid = ({
 };
 
 /**
- * ResponsiveGrid - 완전 반응형 그리드
+ * ResponsiveGrid - 완전 반응형 그리드 (Enhanced with Width Consistency)
  * 화면 크기에 따라 자동으로 컬럼 수가 조정되는 그리드
+ * Enhanced with CSS Grid for perfect width consistency
  */
 export const ResponsiveGrid = ({
   children,
@@ -139,14 +140,57 @@ export const ResponsiveGrid = ({
     lg: 4,
     xl: 4
   },
+  mode = 'flex', // 'flex' | 'css-grid'
+  minItemWidth = 250, // Minimum width for CSS Grid mode
   sx = {},
   ...props
 }) => {
+  const theme = useTheme();
+
+  // Enhanced CSS Grid Mode for Perfect Width Consistency
+  if (mode === 'css-grid') {
+    return (
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: `repeat(${breakpoints.xs}, 1fr)`,
+            sm: `repeat(${breakpoints.sm}, 1fr)`,
+            md: `repeat(${breakpoints.md}, 1fr)`,
+            lg: `repeat(${breakpoints.lg}, 1fr)`,
+            xl: `repeat(${breakpoints.xl}, 1fr)`,
+          },
+          gap: theme.spacing(spacing),
+          // Ensure consistent item widths
+          '& > *': {
+            minWidth: 0, // Prevents overflow
+            width: '100%', // Forces consistent widths
+          },
+          ...sx
+        }}
+        {...props}
+      >
+        {children}
+      </Box>
+    );
+  }
+
+  // Enhanced Flex Mode with Better Width Consistency
   return (
     <Grid
       container
       spacing={spacing}
-      sx={sx}
+      sx={{
+        // Enhanced width consistency
+        '& .MuiGrid-item': {
+          display: 'flex',
+          '& > *': {
+            flex: 1,
+            width: '100%',
+          }
+        },
+        ...sx
+      }}
       {...props}
     >
       {React.Children.map(children, (child, index) => (
@@ -235,6 +279,184 @@ export const SidebarGrid = ({
         </Grid>
       )}
     </Grid>
+  );
+};
+
+/**
+ * UniformGrid - Perfectly Uniform Width Grid
+ * Ensures all items have exactly the same width regardless of content
+ * Perfect for dashboard cards and metric displays
+ */
+export const UniformGrid = ({
+  children,
+  columns = { xs: 1, sm: 2, md: 4, lg: 4 },
+  spacing = 3,
+  minHeight = 120,
+  aspectRatio = null, // e.g., '16/9', '1/1', null for auto height
+  sx = {},
+  ...props
+}) => {
+  const theme = useTheme();
+  const childArray = React.Children.toArray(children);
+
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: `repeat(${columns.xs}, 1fr)`,
+          sm: `repeat(${columns.sm}, 1fr)`,
+          md: `repeat(${columns.md}, 1fr)`,
+          lg: `repeat(${columns.lg}, 1fr)`,
+          xl: `repeat(${columns.xl || columns.lg}, 1fr)`,
+        },
+        gap: theme.spacing(spacing),
+        // Enforce uniform sizing
+        '& > *': {
+          minHeight: minHeight,
+          width: '100%',
+          ...(aspectRatio && {
+            aspectRatio: aspectRatio,
+            height: 'auto'
+          }),
+          // Ensure cards fill the grid item completely
+          display: 'flex',
+          flexDirection: 'column',
+          '& .MuiCard-root': {
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            '& .MuiCardContent-root:last-child': {
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center'
+            }
+          }
+        },
+        ...sx
+      }}
+      {...props}
+    >
+      {childArray.map((child, index) => (
+        <Box key={index}>
+          {child}
+        </Box>
+      ))}
+    </Box>
+  );
+};
+
+/**
+ * TwoColumnLayout - Prevents Width Inconsistency Issues
+ * Standard 2fr-1fr layout pattern for consistent width distribution
+ * Prevents the "70% content, 30% empty space" problem seen in File Scanner
+ */
+export const TwoColumnLayout = ({
+  leftColumn,
+  rightColumn,
+  leftTitle = null,
+  rightTitle = null,
+  spacing = 3,
+  ratio = { left: 2, right: 1 }, // Default 2:1 ratio
+  sx = {},
+  ...props
+}) => {
+  const theme = useTheme();
+
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { 
+          xs: '1fr', 
+          md: `${ratio.left}fr ${ratio.right}fr` 
+        },
+        gap: theme.spacing(spacing),
+        ...sx
+      }}
+      {...props}
+    >
+      {/* Left Column */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: theme.spacing(spacing) }}>
+        {leftTitle && (
+          <Typography variant="h6" gutterBottom>
+            {leftTitle}
+          </Typography>
+        )}
+        {leftColumn}
+      </Box>
+
+      {/* Right Column */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: theme.spacing(spacing) }}>
+        {rightTitle && (
+          <Typography variant="h6" gutterBottom>
+            {rightTitle}
+          </Typography>
+        )}
+        {rightColumn}
+      </Box>
+    </Box>
+  );
+};
+
+/**
+ * BalancedLayout - Multi-Column Balanced Layout System
+ * Ensures consistent width distribution across multiple columns
+ * Prevents width imbalance issues by enforcing uniform grid patterns
+ */
+export const BalancedLayout = ({
+  children,
+  columns = { xs: 1, sm: 2, md: 3, lg: 4 },
+  spacing = 3,
+  minItemHeight = 'auto',
+  uniformHeight = false,
+  sx = {},
+  ...props
+}) => {
+  const theme = useTheme();
+  const childArray = React.Children.toArray(children);
+
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: `repeat(${columns.xs}, 1fr)`,
+          sm: `repeat(${columns.sm}, 1fr)`,
+          md: `repeat(${columns.md}, 1fr)`,
+          lg: `repeat(${columns.lg}, 1fr)`,
+        },
+        gap: theme.spacing(spacing),
+        // Enforce uniform heights if requested
+        ...(uniformHeight && {
+          '& > *': {
+            minHeight: minItemHeight,
+            display: 'flex',
+            flexDirection: 'column',
+            '& .MuiCard-root': {
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              '& .MuiCardContent-root:last-child': {
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center'
+              }
+            }
+          }
+        }),
+        ...sx
+      }}
+      {...props}
+    >
+      {childArray.map((child, index) => (
+        <Box key={index}>
+          {child}
+        </Box>
+      ))}
+    </Box>
   );
 };
 
