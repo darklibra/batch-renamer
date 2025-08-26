@@ -6,13 +6,31 @@ dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
     "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
     "sqlalchemy>=2.0.0",
     "python-multipart>=0.0.6",
-    "aiofiles>=23.0.0"
+    "aiofiles>=23.0.0",
+    "psutil>=5.9.0",
+    "bcrypt>=4.0.0"
 ]
 
 [project.optional-dependencies]
 test = [
     "pytest",
     "httpx"
+]
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["db*", "tests*"]
+
+[dependency-groups]
+test = [
+    "httpx>=0.28.1",
+    "pytest>=8.4.1",
 ]

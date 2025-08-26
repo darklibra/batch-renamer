@@ -1,0 +1,184 @@
+# Docker Compose configuration for Clear File System
+# Production-ready deployment with proper networking and volumes
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: clear-file-db
+    environment:
+      POSTGRES_DB: clear_file
+      POSTGRES_USER: clear_file_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-your_secure_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - clear-file-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clear_file_user -d clear_file"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: clear-file-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - clear-file-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        BUILD_DATE: ${BUILD_DATE}
+        VCS_REF: ${VCS_REF}
+    container_name: clear-file-backend
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgresql://clear_file_user:${DB_PASSWORD:-your_secure_password}@db:5432/clear_file
+      
+      # Redis Configuration
+      REDIS_URL: redis://redis:6379/0
+      
+      # Application Configuration
+      APP_ENV: ${APP_ENV:-production}
+      DEBUG: ${DEBUG:-false}
+      SECRET_KEY: ${SECRET_KEY}
+      API_KEY: ${API_KEY:-}
+      
+      # CORS Configuration
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      
+      # File Processing
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-104857600}
+      MAX_FILES_PER_BATCH: ${MAX_FILES_PER_BATCH:-1000}
+      UPLOAD_DIR: /app/uploads
+      TEMP_DIR: /app/temp
+      
+      # Performance
+      CACHE_TTL: ${CACHE_TTL:-7200}
+      MAX_WORKERS: ${MAX_WORKERS:-8}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-20}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-40}
+      
+      # Monitoring
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      
+      # Feature Flags
+      ENABLE_ASYNC_PROCESSING: ${ENABLE_ASYNC_PROCESSING:-true}
+      ENABLE_PATTERN_CACHE: ${ENABLE_PATTERN_CACHE:-true}
+      ENABLE_SECURITY_VALIDATION: ${ENABLE_SECURITY_VALIDATION:-true}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/temp:/app/temp
+      - ./backend/logs:/app/logs
+      - file_data:/app/data
+    networks:
+      - clear-file-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/system/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+
+  # Frontend Web App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        BUILD_DATE: ${BUILD_DATE}
+        VCS_REF: ${VCS_REF}
+        APP_ENV: ${APP_ENV:-production}
+    container_name: clear-file-frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    networks:
+      - clear-file-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Nginx Reverse Proxy (Production)
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: clear-file-proxy
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - clear-file-network
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - production
+
+networks:
+  clear-file-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  file_data:
+    driver: local
+  nginx_logs:
+    driver: local

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, TextField, InputAdornment } from '@mui/material';
+import { Box, Typography, TextField, InputAdornment, IconButton, Tooltip } from '@mui/material';
 import { Search } from '@mui/icons-material';
 import { CreateButton, RefreshButton } from './ActionButtons';
 
@@ -108,10 +108,38 @@ export const PageHeader = ({
             );
           }
           
-          // Default button
-          return (
-            <Box key={index} sx={{ display: 'flex' }}>
-              {action.component || (
+          // 🎯 개선된 액션 버튼 렌더링 - 빈 버튼 방지
+          if (action.component) {
+            return (
+              <Box key={index} sx={{ display: 'flex' }}>
+                {action.component}
+              </Box>
+            );
+          }
+          
+          // Icon만 있는 경우: IconButton 사용
+          if (action.icon && !action.label) {
+            return (
+              <Tooltip key={index} title={action.tooltip || ''}>
+                <IconButton
+                  onClick={action.onClick}
+                  disabled={action.disabled}
+                  color={action.color || 'default'}
+                  size={action.size || 'medium'}
+                  sx={{
+                    ...action.sx
+                  }}
+                >
+                  {action.icon}
+                </IconButton>
+              </Tooltip>
+            );
+          }
+          
+          // Label이 있는 경우: 기본 버튼 사용
+          if (action.label) {
+            return (
+              <Tooltip key={index} title={action.tooltip || ''}>
                 <button
                   onClick={action.onClick}
                   disabled={action.disabled}
@@ -121,14 +149,22 @@ export const PageHeader = ({
                     borderRadius: '4px',
                     background: '#fff',
                     cursor: action.disabled ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
                     ...action.style
                   }}
                 >
+                  {action.icon}
                   {action.label}
                 </button>
-              )}
-            </Box>
-          );
+              </Tooltip>
+            );
+          }
+          
+          // 🚫 icon도 label도 없는 경우: 렌더링하지 않음 (빈 버튼 방지)
+          console.warn(`PageHeader: Action at index ${index} has no icon or label`, action);
+          return null;
         })}
 
         {/* Primary Action */}
@@ -234,26 +270,53 @@ export const DetailPageHeader = ({
       {/* Actions */}
       {(primaryAction || secondaryActions.length > 0) && (
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {secondaryActions.map((action, index) => (
-            <Box key={index}>
-              {action.component || (
-                <button
-                  onClick={action.onClick}
-                  disabled={action.disabled}
-                  style={{
-                    padding: '8px 16px',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    background: '#fff',
-                    cursor: action.disabled ? 'not-allowed' : 'pointer',
-                    ...action.style
-                  }}
-                >
-                  {action.label}
-                </button>
-              )}
-            </Box>
-          ))}
+          {secondaryActions.map((action, index) => {
+            // 🎯 빈 액션 건너뛰기
+            if (!action.icon && !action.label && !action.component) {
+              console.warn(`DetailPageHeader: Action at index ${index} has no content`, action);
+              return null;
+            }
+            
+            return (
+              <Box key={index}>
+                {action.component || (
+                  action.icon && !action.label ? (
+                    // Icon만 있는 경우: IconButton 사용
+                    <Tooltip title={action.tooltip || ''}>
+                      <IconButton
+                        onClick={action.onClick}
+                        disabled={action.disabled}
+                        color={action.color || 'default'}
+                        size={action.size || 'medium'}
+                      >
+                        {action.icon}
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    // Label이 있는 경우: 기본 버튼 사용
+                    <button
+                      onClick={action.onClick}
+                      disabled={action.disabled}
+                      style={{
+                        padding: '8px 16px',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        background: '#fff',
+                        cursor: action.disabled ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        ...action.style
+                      }}
+                    >
+                      {action.icon}
+                      {action.label}
+                    </button>
+                  )
+                )}
+              </Box>
+            );
+          })}
           {primaryAction && (
             <CreateButton
               label={primaryAction.label}
